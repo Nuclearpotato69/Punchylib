@@ -156,11 +156,11 @@ function Library:CreateWindow(cfg)
 		Size = UDim2.new(1, 0, 0, 28), Position = UDim2.new(0, 0, 0, 30),
 		BackgroundColor3 = Theme.BgBase, BorderSizePixel = 0, Parent = WinFrame,
 	}, {
-		Create("Frame", { Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = Theme.Border, BorderSizePixel = 0 }),
-		Create("Frame", { Size = UDim2.new(1, 0, 0, 1), Position = UDim2.new(0, 0, 1, -1), BackgroundColor3 = Theme.Border, BorderSizePixel = 0 }),
 		Create("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, SortOrder = Enum.SortOrder.LayoutOrder }),
 		Create("UIPadding", { PaddingLeft = UDim.new(0, 4) }),
 	})
+	Create("Frame", { Size = UDim2.new(1, 0, 0, 1), Position = UDim2.new(0, 0, 0, 30), BackgroundColor3 = Theme.Border, BorderSizePixel = 0, Parent = WinFrame })
+	Create("Frame", { Size = UDim2.new(1, 0, 0, 1), Position = UDim2.new(0, 0, 0, 57), BackgroundColor3 = Theme.Border, BorderSizePixel = 0, Parent = WinFrame })
 
 	local ContentArea = Create("Frame", {
 		Name = "ContentArea", Size = UDim2.new(1, 0, 0, 0), Position = UDim2.new(0, 0, 0, 58),
@@ -391,15 +391,15 @@ function Library:CreateWindow(cfg)
 				local valLabel = Create("TextLabel", { Size = UDim2.new(0.45, 0, 0, 16), Position = UDim2.new(0.55, 0, 0, 3), BackgroundTransparency = 1, Text = tostring(default)..suffix, TextColor3 = Theme.TextSecond, TextSize = 10, Font = Enum.Font.GothamMedium, TextXAlignment = Enum.TextXAlignment.Right, Parent = wrap })
 
 				local trackBg = Create("TextButton", {
-					Size = UDim2.new(1, 0, 0, 10), Position = UDim2.new(0, 0, 0, 25),
+					Size = UDim2.new(1, 0, 0, 4), Position = UDim2.new(0, 0, 0, 28),
 					BackgroundColor3 = Color3.fromRGB(22, 22, 30), BorderSizePixel = 0,
-					Text = "", AutoButtonColor = false, Parent = wrap,
+					Text = "", AutoButtonColor = false, ClipsDescendants = true, Parent = wrap,
 				}, { Create("UICorner", { CornerRadius = UDim.new(1, 0) }) })
 
-				local fill = Create("Frame", { Size = UDim2.new(0, 0, 1, 0), BackgroundColor3 = ac, BorderSizePixel = 0, Parent = trackBg }, { Create("UICorner", { CornerRadius = UDim.new(1, 0) }) })
+				local fill = Create("Frame", { Size = UDim2.new(0, 0, 1, 0), BackgroundColor3 = ac, BorderSizePixel = 0, Parent = trackBg })
 
 				local thumbBtn = Create("TextButton", {
-					Size = UDim2.new(0, 10, 0, 10), Position = UDim2.new(0, -5, 0, 0),
+					Size = UDim2.new(0, 10, 0, 10), Position = UDim2.new(0, -5, 0.5, -5),
 					BackgroundColor3 = ac, BorderSizePixel = 0, Text = "", ZIndex = 5, Parent = trackBg,
 				}, {
 					Create("UIStroke", { Color = Color3.fromRGB(255,255,255), Transparency = 0.85, Thickness = 1 }),
