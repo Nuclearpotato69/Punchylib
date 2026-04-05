@@ -630,6 +630,9 @@ function Library:CreateWindow(cfg)
 	end
 
 	function Window:AddESPPreview()
+		local espColor = Theme.Accent
+		local chamColor = Theme.Accent
+
 		local previewFrame = Create("Frame", {
 			Name = "ESPPreview", Size = UDim2.new(0, 114, 0, 260), Position = UDim2.new(1, 8, 0, 0),
 			BackgroundColor3 = Theme.BgPanel, BorderSizePixel = 0, Visible = true, Parent = WinFrame,
@@ -652,101 +655,67 @@ function Library:CreateWindow(cfg)
 
 		MakeDraggable(previewFrame, hdr)
 
-		local vpContainer = Create("Frame", {
+		local canvas = Create("Frame", {
 			Size = UDim2.new(1, 0, 1, -26), Position = UDim2.new(0, 0, 0, 26),
 			BackgroundColor3 = Color3.fromRGB(6, 6, 7), BorderSizePixel = 0, ClipsDescendants = true, Parent = previewFrame,
 		}, { Create("UICorner", { CornerRadius = UDim.new(0, 4) }) })
 
 		Create("Frame", {
 			Size = UDim2.new(0, 66, 0, 7), Position = UDim2.new(0.5, -33, 1, -10),
-			BackgroundColor3 = Theme.Accent, BackgroundTransparency = 0.65, BorderSizePixel = 0, ZIndex = 2, Parent = vpContainer,
+			BackgroundColor3 = Theme.Accent, BackgroundTransparency = 0.65, BorderSizePixel = 0, ZIndex = 2, Parent = canvas,
 		}, { Create("UICorner", { CornerRadius = UDim.new(1, 0) }) })
 
-		local viewport = Create("ViewportFrame", {
-			Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, BorderSizePixel = 0,
-			Ambient = Color3.fromRGB(90, 80, 100), LightColor = Color3.fromRGB(255, 245, 255),
-			LightDirection = Vector3.new(-1, -2, -1), Parent = vpContainer,
-		})
+		local silhouetteColor = Color3.fromRGB(45, 42, 55)
 
-		local cam = Create("Camera", { FieldOfView = 50, Parent = viewport })
-		viewport.CurrentCamera = cam
+		local silParts = {
+			{ s = UDim2.new(0,16,0,16), p = UDim2.new(0.5,-8,0,18) },
+			{ s = UDim2.new(0,22,0,28), p = UDim2.new(0.5,-11,0,40) },
+			{ s = UDim2.new(0,8, 0,24), p = UDim2.new(0.5,-19,0,42) },
+			{ s = UDim2.new(0,8, 0,24), p = UDim2.new(0.5,11, 0,42) },
+			{ s = UDim2.new(0,11,0,36), p = UDim2.new(0.5,-14,0,68) },
+			{ s = UDim2.new(0,11,0,36), p = UDim2.new(0.5,3,  0,68) },
+			{ s = UDim2.new(0,10,0,28), p = UDim2.new(0.5,-13,0,104) },
+			{ s = UDim2.new(0,10,0,28), p = UDim2.new(0.5,3,  0,104) },
+		}
+		local silFrames = {}
+		for _, sp in ipairs(silParts) do
+			local f = Create("Frame", { Size = sp.s, Position = sp.p, BackgroundColor3 = silhouetteColor, BorderSizePixel = 0, ZIndex = 2, Parent = canvas })
+			table.insert(silFrames, f)
+		end
+		silFrames[1].Parent = Create("Frame", { Size = UDim2.new(0,16,0,16), Position = UDim2.new(0.5,-8,0,18), BackgroundColor3 = silhouetteColor, BorderSizePixel = 0, ZIndex = 2, Parent = canvas }, { Create("UICorner", { CornerRadius = UDim.new(1, 0) }) })
 
-		local worldModel = Create("WorldModel", { Parent = viewport })
-
-		local espColor = Theme.Accent
-		local chamState = { enabled = false, color = Theme.Accent }
-		local charClone = nil
-		local yAngle = 0
-
+		local boxStroke = Create("UIStroke", { Color = espColor, Thickness = 1.5 })
 		local boxFrame = Create("Frame", {
-			Size = UDim2.new(0, 38, 0, 115), Position = UDim2.new(0.5, -19, 0.08, 0),
-			BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 5, Visible = false, Parent = vpContainer,
-		}, { Create("UIStroke", { Color = espColor, Thickness = 1.5 }) })
+			Size = UDim2.new(0, 46, 0, 130), Position = UDim2.new(0.5, -23, 0, 12),
+			BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 5, Visible = false, Parent = canvas,
+		})
+		boxStroke.Parent = boxFrame
 
 		local fillFrame = Create("Frame", {
 			Size = UDim2.new(1, 0, 1, 0), BackgroundColor3 = espColor,
 			BackgroundTransparency = 0.5, BorderSizePixel = 0, ZIndex = 4, Visible = false, Parent = boxFrame,
 		})
 
-		local skelFrame = Create("Frame", { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 5, Visible = false, Parent = boxFrame })
-		local skelPositions = { {0.5,0.04,12,1}, {0.5,0.18,10,1}, {0.5,0.35,20,1}, {0.5,0.55,16,1}, {0.5,0.72,14,1}, {0.5,0.88,12,1} }
-		for _, sp in ipairs(skelPositions) do
-			Create("Frame", { Size = UDim2.new(0, sp[3], 0, sp[4]), Position = UDim2.new(sp[1], -sp[3]/2, sp[2], 0), BackgroundColor3 = espColor, BorderSizePixel = 0, Parent = skelFrame })
+		local skelFrame = Create("Frame", { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 6, Visible = false, Parent = boxFrame })
+		local skelDefs = { {0.5,0,14,1},{0.5,0.09,8,1},{0.5,0.19,22,1},{0.5,0.46,12,1},{0.5,0.6,18,1},{0.5,0.77,16,1} }
+		local skelLines = {}
+		for _, sd in ipairs(skelDefs) do
+			local l = Create("Frame", { Size = UDim2.new(0,sd[3],0,sd[4]), Position = UDim2.new(sd[1],-sd[3]/2,sd[2],0), BackgroundColor3 = espColor, BorderSizePixel = 0, Parent = skelFrame })
+			table.insert(skelLines, l)
 		end
 
-		local function updateOverlayColor(col)
-			boxFrame:FindFirstChildOfClass("UIStroke").Color = col
+		local chamOverlay = Create("Frame", {
+			Size = UDim2.new(1, 0, 1, 0), BackgroundColor3 = chamColor,
+			BackgroundTransparency = 0.67, BorderSizePixel = 0, ZIndex = 3, Visible = false, Parent = canvas,
+		})
+
+		local function updateColor(col)
+			espColor = col
+			dot.BackgroundColor3 = col
+			boxStroke.Color = col
 			fillFrame.BackgroundColor3 = col
-			for _, f in ipairs(skelFrame:GetChildren()) do if f:IsA("Frame") then f.BackgroundColor3 = col end end
+			for _, l in ipairs(skelLines) do l.BackgroundColor3 = col end
 		end
-
-		local function cloneCharSafe(c)
-			if charClone then pcall(function() charClone:Destroy() end) end
-			local model = Instance.new("Model")
-			model.Name = "CharClone"
-			for _, v in ipairs(c:GetDescendants()) do
-				if v:IsA("BasePart") then
-					local ok2, part = pcall(function() return v:Clone() end)
-					if ok2 and part then part.Parent = model end
-				end
-			end
-			local hrp = model:FindFirstChild("HumanoidRootPart")
-			if hrp then model.PrimaryPart = hrp end
-			model.Parent = worldModel
-			cam.CFrame = CFrame.new(Vector3.new(0, 2.2, 6.5), Vector3.new(0, 1.2, 0))
-			return model
-		end
-
-		task.spawn(function()
-			local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-			local t0 = tick()
-			while not char:FindFirstChild("HumanoidRootPart") and tick() - t0 < 10 do task.wait(0.1) end
-			charClone = cloneCharSafe(char)
-
-			LocalPlayer.CharacterAdded:Connect(function(newChar)
-				task.wait(1)
-				charClone = cloneCharSafe(newChar)
-				yAngle = 0
-			end)
-
-			RunService.RenderStepped:Connect(function(dt)
-				if not charClone or not charClone.PrimaryPart then return end
-				yAngle = (yAngle + dt * 40) % 360
-				charClone:SetPrimaryPartCFrame(CFrame.new(0, 0, 0) * CFrame.Angles(0, math.rad(yAngle), 0))
-				for _, part in ipairs(charClone:GetDescendants()) do
-					if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-						if chamState.enabled then
-							part.Material = Enum.Material.Neon
-							part.Color    = chamState.color
-						else
-							part.Material = Enum.Material.SmoothPlastic
-							local orig = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild(part.Name)
-							if orig and orig:IsA("BasePart") then part.Color = orig.Color end
-						end
-					end
-				end
-			end)
-		end)
 
 		local Preview = {}
 
@@ -763,20 +732,18 @@ function Library:CreateWindow(cfg)
 			if trans ~= nil then fillFrame.BackgroundTransparency = trans end
 		end
 
-		function Preview:SetSkeleton(en)
-			skelFrame.Visible = en
-		end
+		function Preview:SetSkeleton(en) skelFrame.Visible = en end
 
 		function Preview:SetChams(en, color)
-			chamState.enabled = en
-			if color then chamState.color = color; dot.BackgroundColor3 = color end
+			chamOverlay.Visible = en
+			if color then
+				chamColor = color
+				chamOverlay.BackgroundColor3 = color
+				for _, f in ipairs(silFrames) do f.BackgroundColor3 = en and color or silhouetteColor end
+			end
 		end
 
-		function Preview:SetColor(color)
-			espColor = color
-			dot.BackgroundColor3 = color
-			updateOverlayColor(color)
-		end
+		function Preview:SetColor(color) updateColor(color) end
 
 		return Preview
 	end
