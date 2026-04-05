@@ -190,7 +190,6 @@ function Library:CreateWindow(cfg)
 	CloseBtn.MouseButton1Click:Connect(function()
 		Tween(WinFrame, { Position = UDim2.new(WinFrame.Position.X.Scale, WinFrame.Position.X.Offset, WinFrame.Position.Y.Scale, WinFrame.Position.Y.Offset - 8) }, 0.12)
 		Tween(WinFrame, { BackgroundTransparency = 1 }, 0.18)
-		-- fade all children
 		for _, d in ipairs(WinFrame:GetDescendants()) do
 			if d:IsA("GuiObject") and d ~= WinFrame then
 				pcall(function() Tween(d, { BackgroundTransparency = 1 }, 0.18) end)
@@ -203,7 +202,7 @@ function Library:CreateWindow(cfg)
 		WinFrame.BackgroundTransparency = 0
 	end)
 
-	-- Tab bar (borders parented to WinFrame separately — NOT inside TabBar, avoids UIListLayout eating them)
+	-- Tab bar
 	local TabBar = Create("Frame", {
 		Size = UDim2.new(1, 0, 0, TAB_H),
 		Position = UDim2.new(0, 0, 0, TITLE_H),
@@ -268,7 +267,6 @@ function Library:CreateWindow(cfg)
 		end
 	end)
 
-	-- Key toggle (reads keyRef.v so it updates when changed)
 	local keyConn = UserInputService.InputBegan:Connect(function(input, gpe)
 		if not gpe and input.KeyCode == keyRef.v then
 			WinFrame.Visible = not WinFrame.Visible
@@ -347,12 +345,6 @@ function Library:CreateWindow(cfg)
 				Create("UIStroke", { Color = T.Border, Thickness = 1 }),
 				Create("UICorner", { CornerRadius = UDim.new(0, 5) }),
 			})
-
-			-- Left accent border
-			Create("Frame", {
-				Size = UDim2.new(0, 2, 1, -10), Position = UDim2.new(0, 0, 0, 5),
-				BackgroundColor3 = T.Accent, BorderSizePixel = 0, ZIndex = 2, Parent = box,
-			}, { Create("UICorner", { CornerRadius = UDim.new(1, 0) }) })
 
 			local hdr = Create("Frame", {
 				Size = UDim2.new(1, 0, 0, 24), BackgroundColor3 = T.Bg1,
@@ -444,102 +436,135 @@ function Library:CreateWindow(cfg)
 
 			function GB:AddSlider(k, c2)
 				c2 = c2 or {}
-				local text = c2.Text or k
-				local min = c2.Min or 0; local max = c2.Max or 100
+				local text    = c2.Text    or k
+				local min     = c2.Min     or 0
+				local max     = c2.Max     or 100
 				local default = c2.Default ~= nil and c2.Default or min
-				local rounding = c2.Rounding ~= nil and c2.Rounding or 0
-				local suffix = c2.Suffix or ""
-				local color = c2.Color or "accent"
-				local cb = c2.Callback or function() end
-				local ac = color == "purple" and T.Purple or T.Accent
+				local rounding= c2.Rounding ~= nil and c2.Rounding or 0
+				local suffix  = c2.Suffix  or ""
+				local color   = c2.Color   or "accent"
+				local cb      = c2.Callback or function() end
+				local ac      = color == "purple" and T.Purple or T.Accent
+				local acDim   = color == "purple" and T.PurpleDim or T.AccentDim
 
 				local wrap = Create("Frame", {
-					Size = UDim2.new(1, 0, 0, 44), BackgroundTransparency = 1,
+					Size = UDim2.new(1, 0, 0, 46), BackgroundTransparency = 1,
 					LayoutOrder = #body:GetChildren(), Parent = body,
 				}, { Create("UIPadding", { PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 10) }) })
 
+				-- Label row
 				Create("TextLabel", {
-					Size = UDim2.new(0.65, 0, 0, 18), Position = UDim2.new(0, 0, 0, 2),
+					Size = UDim2.new(0.6, 0, 0, 18), Position = UDim2.new(0, 0, 0, 2),
 					BackgroundTransparency = 1, Text = text, TextColor3 = T.TextHi,
-					TextSize = 11, Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left, Parent = wrap,
+					TextSize = 11, Font = Enum.Font.Gotham,
+					TextXAlignment = Enum.TextXAlignment.Left, Parent = wrap,
 				})
 
 				local valLabel = Create("TextLabel", {
-					Size = UDim2.new(0.35, 0, 0, 18), Position = UDim2.new(0.65, 0, 0, 2),
+					Size = UDim2.new(0.4, 0, 0, 18), Position = UDim2.new(0.6, 0, 0, 2),
 					BackgroundTransparency = 1, Text = tostring(default)..suffix,
 					TextColor3 = ac, TextSize = 11, Font = Enum.Font.GothamBold,
 					TextXAlignment = Enum.TextXAlignment.Right, Parent = wrap,
 				})
 
-				local trackBg = Create("TextButton", {
-					Size = UDim2.new(1, 0, 0, 5), Position = UDim2.new(0, 0, 0, 30),
-					BackgroundColor3 = T.Input, BorderSizePixel = 0,
-					Text = "", AutoButtonColor = false, ClipsDescendants = true, Parent = wrap,
-				}, { Create("UICorner", { CornerRadius = UDim.new(1, 0) }) })
-
-				local fill = Create("Frame", {
-					Size = UDim2.new(0, 0, 1, 0), BackgroundColor3 = ac,
-					BorderSizePixel = 0, Parent = trackBg,
-				})
-
-				-- Thumb (outside clip so it can overflow the track height)
-				local thumbWrap = Create("Frame", {
-					Size = UDim2.new(1, 0, 0, 14), Position = UDim2.new(0, 0, 0.5, -7),
-					BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 5, Parent = trackBg,
-				})
-
-				local thumbBtn = Create("TextButton", {
-					Size = UDim2.new(0, 13, 0, 13), Position = UDim2.new(0, -6, 0.5, -6),
-					BackgroundColor3 = T.TextHi, BorderSizePixel = 0, Text = "", ZIndex = 6,
-					Parent = thumbWrap,
+				-- Track container (no ClipsDescendants so thumb can overflow vertically)
+				local track = Create("Frame", {
+					Size = UDim2.new(1, 0, 0, 8),
+					Position = UDim2.new(0, 0, 0, 30),
+					BackgroundColor3 = T.Bg0, BorderSizePixel = 0,
+					ClipsDescendants = false, Parent = wrap,
 				}, {
-					Create("UIStroke", { Color = ac, Thickness = 2 }),
+					Create("UIStroke", { Color = T.Border, Thickness = 1 }),
 					Create("UICorner", { CornerRadius = UDim.new(1, 0) }),
 				})
 
-				local value = default
-				local slDrag = false
+				-- Fill (clipped to track shape via a wrapper)
+				local fillClip = Create("Frame", {
+					Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1,
+					BorderSizePixel = 0, ClipsDescendants = true, Parent = track,
+				})
+				Create("UICorner", { CornerRadius = UDim.new(1, 0), Parent = fillClip })
+
+				local fill = Create("Frame", {
+					Size = UDim2.new(0, 0, 1, 0),
+					BackgroundColor3 = ac, BorderSizePixel = 0, Parent = fillClip,
+				}, { Create("UICorner", { CornerRadius = UDim.new(1, 0) }) })
+
+				-- Thumb (outside fillClip, so not clipped)
+				local thumb = Create("TextButton", {
+					Size = UDim2.new(0, 14, 0, 14),
+					Position = UDim2.new(0, -7, 0.5, -7),
+					BackgroundColor3 = T.TextHi, BorderSizePixel = 0,
+					Text = "", AutoButtonColor = false, ZIndex = 6, Parent = track,
+				}, {
+					Create("UIStroke", { Color = ac, Thickness = 1.5 }),
+					Create("UICorner", { CornerRadius = UDim.new(1, 0) }),
+				})
+
+				local value   = default
+				local slDrag  = false
 
 				local function applyPct(pct)
 					pct = math.clamp(pct, 0, 1)
 					local raw = min + (max - min) * pct
-					if rounding == 0 then value = math.round(raw)
-					else local m = 10^rounding; value = math.floor(raw*m+0.5)/m end
+					if rounding == 0 then
+						value = math.round(raw)
+					else
+						local m = 10^rounding
+						value = math.floor(raw * m + 0.5) / m
+					end
 					fill.Size         = UDim2.new(pct, 0, 1, 0)
-					thumbBtn.Position = UDim2.new(pct, -6, 0.5, -6)
+					thumb.Position    = UDim2.new(pct, -7, 0.5, -7)
 					valLabel.Text     = tostring(value)..suffix
 					pcall(cb, value)
 				end
 
 				applyPct((default - min) / (max - min))
 
-				thumbBtn.MouseButton1Down:Connect(function() slDrag = true end)
-				trackBg.MouseButton1Down:Connect(function()
+				-- Drag on thumb
+				thumb.MouseButton1Down:Connect(function()
 					slDrag = true
-					local mx = UserInputService:GetMouseLocation().X
-					applyPct((mx - trackBg.AbsolutePosition.X) / trackBg.AbsoluteSize.X)
+					Tween(thumb, { Size = UDim2.new(0, 16, 0, 16), Position = UDim2.new(thumb.Position.X.Scale, thumb.Position.X.Offset - 1, 0.5, -8) }, 0.08)
 				end)
-				UserInputService.InputChanged:Connect(function(inp)
-					if slDrag and inp.UserInputType == Enum.UserInputType.MouseMovement then
-						applyPct((inp.Position.X - trackBg.AbsolutePosition.X) / trackBg.AbsoluteSize.X)
+
+				-- Click anywhere on track
+				track.InputBegan:Connect(function(inp)
+					if inp.UserInputType == Enum.UserInputType.MouseButton1 then
+						slDrag = true
+						local mx = UserInputService:GetMouseLocation().X
+						applyPct((mx - track.AbsolutePosition.X) / track.AbsoluteSize.X)
 					end
 				end)
+
+				UserInputService.InputChanged:Connect(function(inp)
+					if slDrag and inp.UserInputType == Enum.UserInputType.MouseMovement then
+						applyPct((inp.Position.X - track.AbsolutePosition.X) / track.AbsoluteSize.X)
+					end
+				end)
+
 				UserInputService.InputEnded:Connect(function(inp)
-					if inp.UserInputType == Enum.UserInputType.MouseButton1 then slDrag = false end
+					if inp.UserInputType == Enum.UserInputType.MouseButton1 and slDrag then
+						slDrag = false
+						Tween(thumb, { Size = UDim2.new(0, 14, 0, 14), Position = UDim2.new(thumb.Position.X.Scale, thumb.Position.X.Offset + 1, 0.5, -7) }, 0.08)
+					end
 				end)
 
 				local S = {}
-				S.SetValue = function(_, v) applyPct((v-min)/(max-min)) end
-				setmetatable(S, { __index = function(_, k2) if k2 == "Value" then return value end end, __newindex = function(_, k2, v) if k2 == "Value" then applyPct((v-min)/(max-min)) end end })
+				S.SetValue = function(_, v) applyPct((v - min) / (max - min)) end
+				setmetatable(S, {
+					__index    = function(_, k2) if k2 == "Value" then return value end end,
+					__newindex = function(_, k2, v) if k2 == "Value" then applyPct((v - min) / (max - min)) end end,
+				})
 				Library.Options[k] = S
 				return S
 			end
 
 			function GB:AddDropdown(k, c2)
 				c2 = c2 or {}
-				local text = c2.Text or k; local vals = c2.Values or {}
+				local text    = c2.Text    or k
+				local vals    = c2.Values  or {}
 				local default = c2.Default or (vals[1] or "")
-				local cb = c2.Callback or function() end
+				local cb      = c2.Callback or function() end
 
 				local wrap = Create("Frame", {
 					Size = UDim2.new(1, 0, 0, 52), BackgroundTransparency = 1,
@@ -549,7 +574,8 @@ function Library:CreateWindow(cfg)
 				Create("TextLabel", {
 					Size = UDim2.new(1, 0, 0, 16), Position = UDim2.new(0, 0, 0, 2),
 					BackgroundTransparency = 1, Text = text, TextColor3 = T.TextMid,
-					TextSize = 10, Font = Enum.Font.GothamMedium, TextXAlignment = Enum.TextXAlignment.Left, Parent = wrap,
+					TextSize = 10, Font = Enum.Font.GothamMedium,
+					TextXAlignment = Enum.TextXAlignment.Left, Parent = wrap,
 				})
 
 				local dropBtn = Create("TextButton", {
@@ -563,10 +589,10 @@ function Library:CreateWindow(cfg)
 				local selLabel = Create("TextLabel", {
 					Size = UDim2.new(1, -24, 1, 0), Position = UDim2.new(0, 8, 0, 0),
 					BackgroundTransparency = 1, Text = default, TextColor3 = T.TextHi,
-					TextSize = 11, Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left, Parent = dropBtn,
+					TextSize = 11, Font = Enum.Font.Gotham,
+					TextXAlignment = Enum.TextXAlignment.Left, Parent = dropBtn,
 				})
 
-				-- Arrow indicator (two small frames making a "v")
 				local arrowL = Create("Frame", { Size = UDim2.new(0,6,0,1), Position = UDim2.new(1,-17,0.5,1), BackgroundColor3 = T.TextMid, BorderSizePixel = 0, Parent = dropBtn }, { Create("UICorner", { CornerRadius = UDim.new(1,0) }) })
 				local arrowR = Create("Frame", { Size = UDim2.new(0,6,0,1), Position = UDim2.new(1,-12,0.5,1), BackgroundColor3 = T.TextMid, BorderSizePixel = 0, Parent = dropBtn }, { Create("UICorner", { CornerRadius = UDim.new(1,0) }) })
 				arrowL.Rotation = 35; arrowR.Rotation = -35
@@ -620,8 +646,9 @@ function Library:CreateWindow(cfg)
 
 			function GB:AddColorPicker(k, c2)
 				c2 = c2 or {}
-				local text = c2.Text or k; local default = c2.Default or T.Accent
-				local cb = c2.Callback or function() end
+				local text    = c2.Text    or k
+				local default = c2.Default or T.Accent
+				local cb      = c2.Callback or function() end
 
 				local row = Create("Frame", {
 					Size = UDim2.new(1, 0, 0, 28), BackgroundTransparency = 1,
@@ -664,8 +691,9 @@ function Library:CreateWindow(cfg)
 
 			function GB:AddKeybind(k, c2)
 				c2 = c2 or {}
-				local text = c2.Text or k; local default = c2.Default or Enum.KeyCode.Unknown
-				local cb = c2.Callback or function() end
+				local text    = c2.Text    or k
+				local default = c2.Default or Enum.KeyCode.Unknown
+				local cb      = c2.Callback or function() end
 
 				local row = Create("TextButton", {
 					Size = UDim2.new(1, 0, 0, 28), BackgroundTransparency = 1, Text = "",
@@ -704,7 +732,6 @@ function Library:CreateWindow(cfg)
 						badge.Text = "["..inp.KeyCode.Name:upper().."]"
 						badge.TextColor3 = T.TextMid
 						Tween(badge, { BackgroundColor3 = T.Input }, 0.1)
-						-- Update window toggle key if this is the MenuKey
 						if k == "MenuKey" then
 							keyRef.v = inp.KeyCode
 							keyBadge.Text = inp.KeyCode.Name:upper()
@@ -725,7 +752,8 @@ function Library:CreateWindow(cfg)
 
 			function GB:AddButton(c2)
 				c2 = c2 or {}
-				local text = c2.Text or "Button"; local cb = c2.Callback or function() end
+				local text = c2.Text or "Button"
+				local cb   = c2.Callback or function() end
 
 				local wrap = Create("Frame", {
 					Size = UDim2.new(1, 0, 0, 34), BackgroundTransparency = 1,
@@ -747,13 +775,12 @@ function Library:CreateWindow(cfg)
 					Tween(btn, { BackgroundColor3 = T.Bg3 }, 0.14)
 					pcall(cb)
 				end)
+				-- Hover: only background change, no stroke color change
 				btn.MouseEnter:Connect(function()
 					Tween(btn, { BackgroundColor3 = T.Hover }, 0.1)
-					btn:FindFirstChildOfClass("UIStroke").Color = T.Accent
 				end)
 				btn.MouseLeave:Connect(function()
 					Tween(btn, { BackgroundColor3 = T.Bg3 }, 0.1)
-					btn:FindFirstChildOfClass("UIStroke").Color = T.BorderHi
 				end)
 			end
 
@@ -796,224 +823,251 @@ function Library:CreateWindow(cfg)
 		return tab
 	end
 
-	-- ESP Preview: manually built R6 mannequin — zero character access, zero AvatarEditorPrompts
+	-- ================================================================
+	-- ESP Preview  –  pure 2D flat-figure, no ViewportFrame/WorldModel
+	-- ================================================================
 	function Window:AddESPPreview()
 		local espColor = T.Accent
 
+		-- Try to sample local player body colours for the preview figure
+		local skinCol = Color3.fromRGB(255, 200, 155)
+		local bodyCol = Color3.fromRGB(38,  36,  52)
+		local legCol  = Color3.fromRGB(28,  26,  40)
+		local shoeCol = Color3.fromRGB(14,  12,  20)
+		pcall(function()
+			local char = LocalPlayer.Character
+			if not char then return end
+			local h = char:FindFirstChild("Head")
+			local t = char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso")
+			local l = char:FindFirstChild("Left Leg") or char:FindFirstChild("LeftLowerLeg")
+			if h then skinCol = h.Color end
+			if t then bodyCol = t.Color end
+			if l then legCol  = l.Color end
+		end)
+
+		-- Preview window (attached to the right of WinFrame)
 		local previewFrame = Create("Frame", {
-			Name = "ESPPreview", Size = UDim2.new(0, 124, 0, 280),
+			Name = "ESPPreview",
+			Size = UDim2.new(0, 124, 0, 218),
 			Position = UDim2.new(1, 10, 0, 0),
-			BackgroundColor3 = T.Bg1, BorderSizePixel = 0, Visible = true, Parent = WinFrame,
+			BackgroundColor3 = T.Bg1, BorderSizePixel = 0,
+			Visible = true, Parent = WinFrame,
 		}, {
 			Create("UIStroke", { Color = T.BorderHi, Thickness = 1 }),
 			Create("UICorner", { CornerRadius = UDim.new(0, 6) }),
 		})
 
-		-- Top accent line
 		Create("Frame", {
 			Size = UDim2.new(0, 50, 0, 2), Position = UDim2.new(0, 12, 0, 0),
 			BackgroundColor3 = T.Accent, BorderSizePixel = 0, ZIndex = 2, Parent = previewFrame,
 		}, { Create("UICorner", { CornerRadius = UDim.new(1, 0) }) })
 
 		local hdr = Create("Frame", {
-			Size = UDim2.new(1, 0, 0, 28), BackgroundColor3 = T.Bg0, BorderSizePixel = 0, Parent = previewFrame,
+			Size = UDim2.new(1, 0, 0, 28), BackgroundColor3 = T.Bg0,
+			BorderSizePixel = 0, Parent = previewFrame,
 		}, {
 			Create("UICorner", { CornerRadius = UDim.new(0, 6) }),
-			Create("Frame", { Size = UDim2.new(1, 0, 0, 8), Position = UDim2.new(0, 0, 1, -8), BackgroundColor3 = T.Bg0, BorderSizePixel = 0 }),
-			Create("Frame", { Size = UDim2.new(1, 0, 0, 1), Position = UDim2.new(0, 0, 1, -1), BackgroundColor3 = T.Border, BorderSizePixel = 0 }),
+			Create("Frame", { Size = UDim2.new(1,0,0,8), Position = UDim2.new(0,0,1,-8), BackgroundColor3 = T.Bg0, BorderSizePixel = 0 }),
+			Create("Frame", { Size = UDim2.new(1,0,0,1), Position = UDim2.new(0,0,1,-1), BackgroundColor3 = T.Border, BorderSizePixel = 0 }),
 		})
 
 		Create("TextLabel", {
-			Size = UDim2.new(1, -20, 1, 0), Position = UDim2.new(0, 10, 0, 0),
-			BackgroundTransparency = 1, Text = "ESP PREVIEW", TextColor3 = T.TextMid,
-			TextSize = 9, Font = Enum.Font.GothamBold, TextXAlignment = Enum.TextXAlignment.Left, Parent = hdr,
+			Size = UDim2.new(1,-20,1,0), Position = UDim2.new(0,10,0,0),
+			BackgroundTransparency = 1, Text = "ESP PREVIEW",
+			TextColor3 = T.TextMid, TextSize = 9, Font = Enum.Font.GothamBold,
+			TextXAlignment = Enum.TextXAlignment.Left, Parent = hdr,
 		})
 
 		local dot = Create("Frame", {
-			Size = UDim2.new(0, 6, 0, 6), Position = UDim2.new(1, -12, 0.5, -3),
+			Size = UDim2.new(0,6,0,6), Position = UDim2.new(1,-12,0.5,-3),
 			BackgroundColor3 = T.Accent, BorderSizePixel = 0, Parent = hdr,
-		}, { Create("UICorner", { CornerRadius = UDim.new(1, 0) }) })
+		}, { Create("UICorner", { CornerRadius = UDim.new(1,0) }) })
 
 		MakeDraggable(previewFrame, hdr)
 
 		local canvas = Create("Frame", {
-			Size = UDim2.new(1, 0, 1, -28), Position = UDim2.new(0, 0, 0, 28),
-			BackgroundColor3 = Color3.fromRGB(5, 5, 8), BorderSizePixel = 0,
+			Size = UDim2.new(1,0,1,-28), Position = UDim2.new(0,0,0,28),
+			BackgroundColor3 = Color3.fromRGB(6,5,10), BorderSizePixel = 0,
 			ClipsDescendants = true, Parent = previewFrame,
-		}, { Create("UICorner", { CornerRadius = UDim.new(0, 6) }) })
+		}, { Create("UICorner", { CornerRadius = UDim.new(0,6) }) })
 
-		-- Subtle grid floor
-		for i = 0, 5 do
-			Create("Frame", {
-				Size = UDim2.new(1, 0, 0, 1),
-				Position = UDim2.new(0, 0, 0.58 + i*0.08, 0),
-				BackgroundColor3 = Color3.fromRGB(22, 20, 30),
-				BorderSizePixel = 0, Parent = canvas,
-			})
-		end
-		for i = 0, 4 do
-			Create("Frame", {
-				Size = UDim2.new(0, 1, 0.45, 0),
-				Position = UDim2.new(0.1 + i*0.2, 0, 0.56, 0),
-				BackgroundColor3 = Color3.fromRGB(22, 20, 30),
-				BorderSizePixel = 0, Parent = canvas,
-			})
-		end
-
-		-- ViewportFrame with manually constructed R6 mannequin (no character cloning)
-		local viewport = Create("ViewportFrame", {
-			Size = UDim2.new(1, 0, 1, 0),
-			BackgroundTransparency = 1, BorderSizePixel = 0,
-			Ambient      = Color3.fromRGB(100, 90, 115),
-			LightColor   = Color3.fromRGB(255, 245, 255),
-			LightDirection = Vector3.new(-0.8, -2, -0.6),
-			Parent = canvas,
+		-- Subtle floor line
+		Create("Frame", {
+			Size = UDim2.new(0.85,0,0,1), Position = UDim2.new(0.075,0,0.83,0),
+			BackgroundColor3 = Color3.fromRGB(20,18,30), BorderSizePixel = 0, Parent = canvas,
 		})
 
-		local cam = Create("Camera", { FieldOfView = 28, Parent = viewport })
-		viewport.CurrentCamera = cam
-		cam.CFrame = CFrame.new(Vector3.new(0, 3.1, 9.5), Vector3.new(0, 3.1, 0))
+		-- ---------------------------------------------------------------
+		-- 2D flat figure  (R6 proportions, absolute pixel coords)
+		-- Canvas is 124 × 190 px.  Figure centre X = 62, top Y = 22.
+		-- ---------------------------------------------------------------
+		local CX, SY = 62, 22
 
-		local wm = Create("WorldModel", { Parent = viewport })
-
-		local skin  = Color3.fromRGB(250, 200, 160)
-		local shirt = Color3.fromRGB(38, 36, 52)
-		local pant  = Color3.fromRGB(26, 24, 38)
-		local shoe  = Color3.fromRGB(14, 12, 18)
-
-		local function P(sz, pos, col, shape)
-			local p = Instance.new("Part")
-			p.Size = sz; p.CFrame = CFrame.new(pos)
-			p.Anchored = true; p.CanCollide = false; p.CastShadow = false
-			p.Material = Enum.Material.SmoothPlastic; p.Color = col
-			if shape then p.Shape = shape end
-			p.Parent = wm
-			return p
+		local function Rect(w, h, ax, ay, col, cr)
+			return Create("Frame", {
+				Size     = UDim2.new(0, w, 0, h),
+				Position = UDim2.new(0, ax, 0, ay),
+				BackgroundColor3 = col, BorderSizePixel = 0, ZIndex = 2, Parent = canvas,
+			}, cr and { Create("UICorner", { CornerRadius = UDim.new(0, cr) }) } or nil)
 		end
 
-		-- Head
-		P(Vector3.new(1.3,1.3,1.3), Vector3.new(0,5.25,0), skin, Enum.PartType.Ball)
-		-- Neck
-		P(Vector3.new(0.45,0.35,0.45), Vector3.new(0,4.5,0), skin)
-		-- Torso upper
-		P(Vector3.new(2,1.15,1.05), Vector3.new(0,3.7,0), shirt)
-		-- Torso lower
-		P(Vector3.new(2,0.9,1.05), Vector3.new(0,2.65,0), shirt)
-		-- Belt line
-		P(Vector3.new(2.05,0.12,1.1), Vector3.new(0,2.16,0), Color3.fromRGB(20,18,28))
-		-- Left upper arm
-		P(Vector3.new(0.92,1.15,0.92), Vector3.new(-1.47,3.65,0), shirt)
-		-- Left lower arm
-		P(Vector3.new(0.85,1.05,0.85), Vector3.new(-1.47,2.3,0), skin)
-		-- Right upper arm
-		P(Vector3.new(0.92,1.15,0.92), Vector3.new(1.47,3.65,0), shirt)
-		-- Right lower arm
-		P(Vector3.new(0.85,1.05,0.85), Vector3.new(1.47,2.3,0), skin)
-		-- Left upper leg
-		P(Vector3.new(0.95,1.25,0.95), Vector3.new(-0.55,1.5,0), pant)
-		-- Left lower leg
-		P(Vector3.new(0.9,1.1,0.9),   Vector3.new(-0.55,0.2,0), pant)
-		-- Left shoe
-		P(Vector3.new(0.96,0.28,1.2), Vector3.new(-0.55,-0.5,0.08), shoe)
-		-- Right upper leg
-		P(Vector3.new(0.95,1.25,0.95), Vector3.new(0.55,1.5,0), pant)
-		-- Right lower leg
-		P(Vector3.new(0.9,1.1,0.9),   Vector3.new(0.55,0.2,0), pant)
-		-- Right shoe
-		P(Vector3.new(0.96,0.28,1.2), Vector3.new(0.55,-0.5,0.08), shoe)
-		-- Floor shadow
-		P(Vector3.new(3,0.04,2), Vector3.new(0,-0.65,0), Color3.fromRGB(8,7,12))
+		-- Draw order: back → front (shoes first so legs render on top)
+		Rect(14, 7,  CX-26, SY+102, shoeCol, 2)   -- L shoe
+		Rect(14, 7,  CX+12, SY+102, shoeCol, 2)   -- R shoe
+		Rect(11, 33, CX-23, SY+68,  legCol,  2)   -- L leg
+		Rect(11, 33, CX+12, SY+68,  legCol,  2)   -- R leg
+		Rect( 9, 36, CX-24, SY+29,  bodyCol, 2)   -- L arm
+		Rect( 9, 36, CX+15, SY+29,  bodyCol, 2)   -- R arm
+		Rect(26, 40, CX-13, SY+27,  bodyCol, 2)   -- torso
+		Rect( 7,  9, CX- 3, SY+18,  skinCol, 2)   -- neck
+		Rect(20, 22, CX-10, SY,     skinCol, 5)   -- head
 
-		-- 2D ESP overlays layered on canvas
-		local boxStroke = Instance.new("UIStroke"); boxStroke.Color = espColor; boxStroke.Thickness = 1.5
+		-- ---------------------------------------------------------------
+		-- ESP overlay elements (off by default, toggled via Preview API)
+		-- Box bounds:  x=36, y=18, w=52, h=116
+		-- ---------------------------------------------------------------
+		local BOX_X, BOX_Y, BOX_W, BOX_H = 36, 18, 52, 116
+
+		-- Nametag above box
+		local nameTag = Create("TextLabel", {
+			Size = UDim2.new(0, BOX_W + 20, 0, 14),
+			Position = UDim2.new(0, BOX_X - 10, 0, BOX_Y - 17),
+			BackgroundTransparency = 1,
+			Text = LocalPlayer.DisplayName or "Player",
+			TextColor3 = espColor, TextSize = 10, Font = Enum.Font.GothamBold,
+			TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 8,
+			TextStrokeTransparency = 0.6, Visible = false, Parent = canvas,
+		})
+
+		-- Box outline
+		local boxStroke = Instance.new("UIStroke")
+		boxStroke.Color = espColor; boxStroke.Thickness = 1.5
 		local boxFrame = Create("Frame", {
-			Size = UDim2.new(0, 56, 0, 150), Position = UDim2.new(0.5, -28, 0, 6),
-			BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 5, Visible = false, Parent = canvas,
+			Size = UDim2.new(0, BOX_W, 0, BOX_H),
+			Position = UDim2.new(0, BOX_X, 0, BOX_Y),
+			BackgroundTransparency = 1, BorderSizePixel = 0,
+			ZIndex = 5, Visible = false, Parent = canvas,
 		})
 		boxStroke.Parent = boxFrame
 
+		-- Box fill
 		local fillFrame = Create("Frame", {
-			Size = UDim2.new(1,0,1,0), BackgroundColor3 = espColor,
-			BackgroundTransparency = 0.75, BorderSizePixel = 0, ZIndex = 4, Visible = false, Parent = boxFrame,
+			Size = UDim2.new(1,0,1,0),
+			BackgroundColor3 = espColor, BackgroundTransparency = 0.75,
+			BorderSizePixel = 0, ZIndex = 4, Visible = false, Parent = boxFrame,
 		})
 
-		local skelFrame = Create("Frame", {
-			Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1,
-			BorderSizePixel = 0, ZIndex = 6, Visible = false, Parent = boxFrame,
-		})
-		local skelDefs = {
-			{0.5,0,    4,1}, {0.5,0.06, 8,1}, {0.5,0.17,24,1},
-			{0.5,0.45,10,1}, {0.5,0.58,20,1}, {0.5,0.77,16,1},
-		}
-		local skelLines = {}
-		for _, sd in ipairs(skelDefs) do
-			table.insert(skelLines, Create("Frame", {
-				Size = UDim2.new(0,sd[3],0,sd[4]),
-				Position = UDim2.new(sd[1],-sd[3]/2,sd[2],0),
-				BackgroundColor3 = espColor, BorderSizePixel = 0, Parent = skelFrame,
-			}))
-		end
-
-		-- Healthbar
+		-- Health bar background
 		local hbBg = Create("Frame", {
-			Size = UDim2.new(0, 3, 0, 150), Position = UDim2.new(0, -8, 0, 6),
-			BackgroundColor3 = Color3.fromRGB(40,12,12), BorderSizePixel = 0, ZIndex = 5, Visible = false, Parent = canvas,
-		}, { Create("UICorner", { CornerRadius = UDim.new(1, 0) }) })
+			Size = UDim2.new(0, 4, 0, BOX_H),
+			Position = UDim2.new(0, BOX_X - 8, 0, BOX_Y),
+			BackgroundColor3 = Color3.fromRGB(30,8,8),
+			BorderSizePixel = 0, ZIndex = 5, Visible = false, Parent = canvas,
+		}, { Create("UICorner", { CornerRadius = UDim.new(0, 2) }) })
+
+		-- Health fill (75 % health)
 		local hbFill = Create("Frame", {
-			Size = UDim2.new(1, 0, 0.75, 0), Position = UDim2.new(0, 0, 0.25, 0),
+			Size = UDim2.new(1,0, 0.75,0), Position = UDim2.new(0,0, 0.25,0),
 			BackgroundColor3 = T.Green, BorderSizePixel = 0, Parent = hbBg,
-		}, { Create("UICorner", { CornerRadius = UDim.new(1, 0) }) })
+		}, { Create("UICorner", { CornerRadius = UDim.new(0,2) }) })
 
-		-- Nametag
-		local nameTag = Create("TextLabel", {
-			Size = UDim2.new(1, 16, 0, 14), Position = UDim2.new(0, -8, 0, -16),
-			BackgroundTransparency = 1, Text = "Enemy", TextColor3 = espColor,
-			TextSize = 10, Font = Enum.Font.GothamBold,
-			TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 7, Visible = false, Parent = boxFrame,
+		-- Skeleton container (positioned over the box)
+		local skelFrame = Create("Frame", {
+			Size = UDim2.new(0, BOX_W, 0, BOX_H),
+			Position = UDim2.new(0, BOX_X, 0, BOX_Y),
+			BackgroundTransparency = 1, BorderSizePixel = 0,
+			ZIndex = 7, Visible = false, Parent = canvas,
 		})
 
-		-- Chams overlay
-		local chamOverlay = Create("Frame", {
-			Size = UDim2.new(1,0,1,0), BackgroundColor3 = espColor,
-			BackgroundTransparency = 0.78, BorderSizePixel = 0, ZIndex = 3, Visible = false, Parent = canvas,
-		})
-
-		local function updateColor(col)
-			espColor = col; dot.BackgroundColor3 = col
-			boxStroke.Color = col; fillFrame.BackgroundColor3 = col
-			nameTag.TextColor3 = col
-			for _, l in ipairs(skelLines) do l.BackgroundColor3 = col end
+		-- Helper: draw a 1-pixel skeleton line inside skelFrame
+		local function SkelLine(w, h, x, y)
+			Create("Frame", {
+				Size = UDim2.new(0,w,0,h), Position = UDim2.new(0,x,0,y),
+				BackgroundColor3 = espColor, BorderSizePixel = 0,
+				ZIndex = 7, Parent = skelFrame,
+			}, { Create("UICorner", { CornerRadius = UDim.new(1,0) }) })
 		end
 
+		-- Key joint positions relative to skelFrame (BOX_X=36, BOX_Y=18):
+		--   Head centre:    x=26, y=4
+		--   Neck bottom:    x=26, y=28
+		--   Shoulders:      L=x=2,y=33   R=x=45,y=33   (arm centres)
+		--   Hip line:       y=71          L=x=7  R=x=37
+		SkelLine(1, 24, 25,  4)   -- head → neck (vertical)
+		SkelLine(43, 1,  2, 33)   -- shoulder line (horizontal)
+		SkelLine(1, 34,  2, 33)   -- L arm (vertical)
+		SkelLine(1, 34, 45, 33)   -- R arm (vertical)
+		SkelLine(1, 38, 25, 29)   -- spine  (vertical)
+		SkelLine(30, 1,  7, 71)   -- hip line (horizontal)
+		SkelLine(1, 34,  7, 71)   -- L leg (vertical)
+		SkelLine(1, 34, 36, 71)   -- R leg (vertical)
+
+		-- Chams full-canvas tint
+		local chamOverlay = Create("Frame", {
+			Size = UDim2.new(1,0,1,0),
+			BackgroundColor3 = espColor, BackgroundTransparency = 0.78,
+			BorderSizePixel = 0, ZIndex = 3, Visible = false, Parent = canvas,
+		})
+
+		-- ---------------------------------------------------------------
+		-- Internal colour updater
+		-- ---------------------------------------------------------------
+		local function updateColor(col)
+			espColor = col
+			dot.BackgroundColor3        = col
+			boxStroke.Color             = col
+			fillFrame.BackgroundColor3  = col
+			nameTag.TextColor3          = col
+			chamOverlay.BackgroundColor3= col
+			for _, f in ipairs(skelFrame:GetChildren()) do
+				if f:IsA("Frame") then f.BackgroundColor3 = col end
+			end
+		end
+
+		-- ---------------------------------------------------------------
+		-- Public API
+		-- ---------------------------------------------------------------
 		local Preview = {}
-		function Preview:SetVisible(v) previewFrame.Visible = v end
+
+		function Preview:SetVisible(v)
+			previewFrame.Visible = v
+		end
+
 		function Preview:SetBox(en, filled, trans)
-			boxFrame.Visible = en; hbBg.Visible = en; nameTag.Visible = en
+			boxFrame.Visible  = en
+			hbBg.Visible      = en
+			nameTag.Visible   = en
 			if filled ~= nil then fillFrame.Visible = filled end
 			if trans   ~= nil then fillFrame.BackgroundTransparency = trans end
 		end
+
 		function Preview:SetFilled(en, trans)
 			fillFrame.Visible = en
 			if trans ~= nil then fillFrame.BackgroundTransparency = trans end
 		end
-		function Preview:SetSkeleton(en) skelFrame.Visible = en end
+
+		function Preview:SetSkeleton(en)
+			skelFrame.Visible = en
+		end
+
 		function Preview:SetChams(en, color)
 			chamOverlay.Visible = en
 			if color then updateColor(color); chamOverlay.BackgroundColor3 = color end
 		end
-		function Preview:SetColor(color) updateColor(color) end
+
+		function Preview:SetColor(color)
+			updateColor(color)
+		end
+
 		return Preview
 	end
 
 	function Window:Unload()
-		-- Disconnect all tracked connections
 		for _, c in ipairs(Library._connections) do pcall(function() c:Disconnect() end) end
 		Library._connections = {}
-		-- Destroy ScreenGui
 		local sg = Library._screenGui
 		if sg then
 			pcall(function() sg:Destroy() end)
-			-- Fallback if destroy is blocked
 			pcall(function() sg.Enabled = false end)
 			pcall(function() sg.Parent = nil end)
 		end
