@@ -5,6 +5,7 @@
 local Players          = game:GetService("Players")
 local TweenService     = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
+local RunService       = game:GetService("RunService")
 local CoreGui          = game:GetService("CoreGui")
 local LocalPlayer      = Players.LocalPlayer
 
@@ -94,7 +95,6 @@ do
 end
 Library._screenGui = ScreenGui
 
--- Abstract logo: 3 descending bars (histogram mark)
 local function BuildLogo(parent, x, y)
 	local bars = { {12, 12}, {8, 8}, {5, 5} }
 	for i, b in ipairs(bars) do
@@ -129,13 +129,11 @@ function Library:CreateWindow(cfg)
 		Create("UICorner", { CornerRadius = UDim.new(0, 6) }),
 	})
 
-	-- Subtle top accent line
 	Create("Frame", {
 		Size = UDim2.new(0, 80, 0, 2), Position = UDim2.new(0, 20, 0, 0),
 		BackgroundColor3 = T.Accent, BorderSizePixel = 0, ZIndex = 2, Parent = WinFrame,
 	}, { Create("UICorner", { CornerRadius = UDim.new(1, 0) }) })
 
-	-- Title bar
 	local Titlebar = Create("Frame", {
 		Size = UDim2.new(1, 0, 0, TITLE_H), BackgroundColor3 = T.Bg0,
 		BorderSizePixel = 0, Parent = WinFrame,
@@ -146,15 +144,11 @@ function Library:CreateWindow(cfg)
 	})
 
 	MakeDraggable(WinFrame, Titlebar)
-
-	-- Abstract logo mark
 	BuildLogo(Titlebar, 12, 10)
 
-	-- Title text
-	local titleStr = title:upper()
-	local titleLabel = Create("TextLabel", {
+	Create("TextLabel", {
 		Size = UDim2.new(0, 80, 1, 0), Position = UDim2.new(0, 30, 0, 0),
-		BackgroundTransparency = 1, Text = titleStr,
+		BackgroundTransparency = 1, Text = title:upper(),
 		TextColor3 = T.TextHi, TextSize = 12, Font = Enum.Font.GothamBlack,
 		TextXAlignment = Enum.TextXAlignment.Left, Parent = Titlebar,
 	})
@@ -169,7 +163,6 @@ function Library:CreateWindow(cfg)
 		})
 	end
 
-	-- Key badge
 	local keyBadge = Create("TextLabel", {
 		Size = UDim2.new(0, 58, 0, 17), Position = UDim2.new(1, -88, 0.5, -8),
 		BackgroundColor3 = T.Bg2, BorderSizePixel = 0,
@@ -177,7 +170,6 @@ function Library:CreateWindow(cfg)
 		Font = Enum.Font.GothamMedium, Parent = Titlebar,
 	}, { Create("UIStroke", { Color = T.BorderHi, Thickness = 1 }), Create("UICorner", { CornerRadius = UDim.new(0, 3) }) })
 
-	-- Close button only (red dot)
 	local CloseBtn = Create("TextButton", {
 		Size = UDim2.new(0, 12, 0, 12), Position = UDim2.new(1, -20, 0.5, -6),
 		BackgroundColor3 = T.Red, BorderSizePixel = 0,
@@ -187,20 +179,35 @@ function Library:CreateWindow(cfg)
 	CloseBtn.MouseEnter:Connect(function() Tween(CloseBtn, { BackgroundColor3 = Color3.fromRGB(255, 100, 100) }, 0.1) end)
 	CloseBtn.MouseLeave:Connect(function() Tween(CloseBtn, { BackgroundColor3 = T.Red }, 0.1) end)
 
-	CloseBtn.MouseButton1Click:Connect(function()
-		Tween(WinFrame, { Position = UDim2.new(WinFrame.Position.X.Scale, WinFrame.Position.X.Offset, WinFrame.Position.Y.Scale, WinFrame.Position.Y.Offset - 8) }, 0.12)
-		Tween(WinFrame, { BackgroundTransparency = 1 }, 0.18)
-		for _, d in ipairs(WinFrame:GetDescendants()) do
-			if d:IsA("GuiObject") and d ~= WinFrame then
-				pcall(function() Tween(d, { BackgroundTransparency = 1 }, 0.18) end)
-				pcall(function() Tween(d, { TextTransparency = 1 }, 0.18) end)
-				pcall(function() Tween(d, { ImageTransparency = 1 }, 0.18) end)
-			end
-		end
-		task.wait(0.22)
+	-- ── FIXED close: no child transparency tweening, just slide + hide ──
+	local isAnimating = false
+	local function closeWindow()
+		if isAnimating then return end
+		isAnimating = true
+		local p = WinFrame.Position
+		Tween(WinFrame, {
+			Position = UDim2.new(p.X.Scale, p.X.Offset, p.Y.Scale, p.Y.Offset + 10),
+		}, 0.12)
+		task.wait(0.13)
 		WinFrame.Visible = false
-		WinFrame.BackgroundTransparency = 0
-	end)
+		WinFrame.Position = p  -- reset so re-open works perfectly
+		isAnimating = false
+	end
+
+	local function openWindow()
+		if isAnimating then return end
+		isAnimating = true
+		local p = WinFrame.Position
+		WinFrame.Position = UDim2.new(p.X.Scale, p.X.Offset, p.Y.Scale, p.Y.Offset - 8)
+		WinFrame.Visible = true
+		Tween(WinFrame, {
+			Position = UDim2.new(p.X.Scale, p.X.Offset, p.Y.Scale, p.Y.Offset + 8),
+		}, 0.15)
+		task.wait(0.16)
+		isAnimating = false
+	end
+
+	CloseBtn.MouseButton1Click:Connect(closeWindow)
 
 	-- Tab bar
 	local TabBar = Create("Frame", {
@@ -214,7 +221,6 @@ function Library:CreateWindow(cfg)
 	Create("Frame", { Size = UDim2.new(1,0,0,1), Position = UDim2.new(0,0,0,TITLE_H-1), BackgroundColor3 = T.Border, BorderSizePixel = 0, ZIndex = 2, Parent = WinFrame })
 	Create("Frame", { Size = UDim2.new(1,0,0,1), Position = UDim2.new(0,0,0,TITLE_H+TAB_H-1), BackgroundColor3 = T.Border, BorderSizePixel = 0, ZIndex = 2, Parent = WinFrame })
 
-	-- Scrollable content
 	local ContentArea = Create("ScrollingFrame", {
 		Name = "ContentArea",
 		Size = UDim2.new(1, 0, 0, CONTENT_H),
@@ -229,7 +235,6 @@ function Library:CreateWindow(cfg)
 		Parent = WinFrame,
 	})
 
-	-- Status bar
 	local StatusBar = Create("Frame", {
 		Size = UDim2.new(1, 0, 0, STATUS_H),
 		Position = UDim2.new(0, 0, 0, WIN_H - STATUS_H),
@@ -240,7 +245,7 @@ function Library:CreateWindow(cfg)
 		Create("Frame", { Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = T.Border, BorderSizePixel = 0 }),
 	})
 
-	local statusDot = Create("Frame", {
+	Create("Frame", {
 		Size = UDim2.new(0, 5, 0, 5), Position = UDim2.new(0, 10, 0.5, -2),
 		BackgroundColor3 = T.Green, BorderSizePixel = 0, Parent = StatusBar,
 	}, { Create("UICorner", { CornerRadius = UDim.new(1, 0) }) })
@@ -269,19 +274,23 @@ function Library:CreateWindow(cfg)
 
 	local keyConn = UserInputService.InputBegan:Connect(function(input, gpe)
 		if not gpe and input.KeyCode == keyRef.v then
-			WinFrame.Visible = not WinFrame.Visible
+			if WinFrame.Visible then
+				closeWindow()
+			else
+				openWindow()
+			end
 		end
 	end)
 	table.insert(Library._connections, keyConn)
 
 	local Window = {
-		_frame    = WinFrame,
-		_tabBar   = TabBar,
-		_content  = ContentArea,
-		_tabs     = {},
-		_activeTab= nil,
-		_keyRef   = keyRef,
-		_keyBadge = keyBadge,
+		_frame     = WinFrame,
+		_tabBar    = TabBar,
+		_content   = ContentArea,
+		_tabs      = {},
+		_activeTab = nil,
+		_keyRef    = keyRef,
+		_keyBadge  = keyBadge,
 	}
 
 	function Window:_switchTab(tab)
@@ -374,10 +383,10 @@ function Library:CreateWindow(cfg)
 
 			function GB:AddToggle(k, c2)
 				c2 = c2 or {}
-				local text = c2.Text or k
+				local text    = c2.Text    or k
 				local default = c2.Default ~= nil and c2.Default or false
-				local cb = c2.Callback or function() end
-				local color = c2.Color or "accent"
+				local cb      = c2.Callback or function() end
+				local color   = c2.Color or "accent"
 				local accentCol = color == "purple" and T.Purple or T.Accent
 				local accentDim = color == "purple" and T.PurpleDim or T.AccentDim
 
@@ -405,7 +414,7 @@ function Library:CreateWindow(cfg)
 					BackgroundColor3 = T.TextLo, BorderSizePixel = 0, Parent = pill,
 				}, { Create("UICorner", { CornerRadius = UDim.new(1, 0) }) })
 
-				local value = default
+				local value  = default
 				local stroke = pill:FindFirstChildOfClass("UIStroke")
 
 				local function apply(v, silent)
@@ -436,23 +445,22 @@ function Library:CreateWindow(cfg)
 
 			function GB:AddSlider(k, c2)
 				c2 = c2 or {}
-				local text    = c2.Text    or k
-				local min     = c2.Min     or 0
-				local max     = c2.Max     or 100
-				local default = c2.Default ~= nil and c2.Default or min
-				local rounding= c2.Rounding ~= nil and c2.Rounding or 0
-				local suffix  = c2.Suffix  or ""
-				local color   = c2.Color   or "accent"
-				local cb      = c2.Callback or function() end
-				local ac      = color == "purple" and T.Purple or T.Accent
-				local acDim   = color == "purple" and T.PurpleDim or T.AccentDim
+				local text     = c2.Text     or k
+				local min      = c2.Min      or 0
+				local max      = c2.Max      or 100
+				local default  = c2.Default  ~= nil and c2.Default or min
+				local rounding = c2.Rounding ~= nil and c2.Rounding or 0
+				local suffix   = c2.Suffix   or ""
+				local color    = c2.Color    or "accent"
+				local cb       = c2.Callback or function() end
+				local ac       = color == "purple" and T.Purple or T.Accent
+				local acDim    = color == "purple" and T.PurpleDim or T.AccentDim
 
 				local wrap = Create("Frame", {
 					Size = UDim2.new(1, 0, 0, 46), BackgroundTransparency = 1,
 					LayoutOrder = #body:GetChildren(), Parent = body,
 				}, { Create("UIPadding", { PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 10) }) })
 
-				-- Label row
 				Create("TextLabel", {
 					Size = UDim2.new(0.6, 0, 0, 18), Position = UDim2.new(0, 0, 0, 2),
 					BackgroundTransparency = 1, Text = text, TextColor3 = T.TextHi,
@@ -467,18 +475,14 @@ function Library:CreateWindow(cfg)
 					TextXAlignment = Enum.TextXAlignment.Right, Parent = wrap,
 				})
 
-				-- Track container (no ClipsDescendants so thumb can overflow vertically)
 				local track = Create("Frame", {
-					Size = UDim2.new(1, 0, 0, 8),
-					Position = UDim2.new(0, 0, 0, 30),
-					BackgroundColor3 = T.Bg0, BorderSizePixel = 0,
-					ClipsDescendants = false, Parent = wrap,
+					Size = UDim2.new(1, 0, 0, 8), Position = UDim2.new(0, 0, 0, 30),
+					BackgroundColor3 = T.Bg0, BorderSizePixel = 0, ClipsDescendants = false, Parent = wrap,
 				}, {
 					Create("UIStroke", { Color = T.Border, Thickness = 1 }),
 					Create("UICorner", { CornerRadius = UDim.new(1, 0) }),
 				})
 
-				-- Fill (clipped to track shape via a wrapper)
 				local fillClip = Create("Frame", {
 					Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1,
 					BorderSizePixel = 0, ClipsDescendants = true, Parent = track,
@@ -490,10 +494,8 @@ function Library:CreateWindow(cfg)
 					BackgroundColor3 = ac, BorderSizePixel = 0, Parent = fillClip,
 				}, { Create("UICorner", { CornerRadius = UDim.new(1, 0) }) })
 
-				-- Thumb (outside fillClip, so not clipped)
 				local thumb = Create("TextButton", {
-					Size = UDim2.new(0, 14, 0, 14),
-					Position = UDim2.new(0, -7, 0.5, -7),
+					Size = UDim2.new(0, 14, 0, 14), Position = UDim2.new(0, -7, 0.5, -7),
 					BackgroundColor3 = T.TextHi, BorderSizePixel = 0,
 					Text = "", AutoButtonColor = false, ZIndex = 6, Parent = track,
 				}, {
@@ -501,8 +503,8 @@ function Library:CreateWindow(cfg)
 					Create("UICorner", { CornerRadius = UDim.new(1, 0) }),
 				})
 
-				local value   = default
-				local slDrag  = false
+				local value  = default
+				local slDrag = false
 
 				local function applyPct(pct)
 					pct = math.clamp(pct, 0, 1)
@@ -513,21 +515,18 @@ function Library:CreateWindow(cfg)
 						local m = 10^rounding
 						value = math.floor(raw * m + 0.5) / m
 					end
-					fill.Size         = UDim2.new(pct, 0, 1, 0)
-					thumb.Position    = UDim2.new(pct, -7, 0.5, -7)
-					valLabel.Text     = tostring(value)..suffix
+					fill.Size      = UDim2.new(pct, 0, 1, 0)
+					thumb.Position = UDim2.new(pct, -7, 0.5, -7)
+					valLabel.Text  = tostring(value)..suffix
 					pcall(cb, value)
 				end
 
 				applyPct((default - min) / (max - min))
 
-				-- Drag on thumb
 				thumb.MouseButton1Down:Connect(function()
 					slDrag = true
 					Tween(thumb, { Size = UDim2.new(0, 16, 0, 16), Position = UDim2.new(thumb.Position.X.Scale, thumb.Position.X.Offset - 1, 0.5, -8) }, 0.08)
 				end)
-
-				-- Click anywhere on track
 				track.InputBegan:Connect(function(inp)
 					if inp.UserInputType == Enum.UserInputType.MouseButton1 then
 						slDrag = true
@@ -535,13 +534,11 @@ function Library:CreateWindow(cfg)
 						applyPct((mx - track.AbsolutePosition.X) / track.AbsoluteSize.X)
 					end
 				end)
-
 				UserInputService.InputChanged:Connect(function(inp)
 					if slDrag and inp.UserInputType == Enum.UserInputType.MouseMovement then
 						applyPct((inp.Position.X - track.AbsolutePosition.X) / track.AbsoluteSize.X)
 					end
 				end)
-
 				UserInputService.InputEnded:Connect(function(inp)
 					if inp.UserInputType == Enum.UserInputType.MouseButton1 and slDrag then
 						slDrag = false
@@ -775,13 +772,8 @@ function Library:CreateWindow(cfg)
 					Tween(btn, { BackgroundColor3 = T.Bg3 }, 0.14)
 					pcall(cb)
 				end)
-				-- Hover: only background change, no stroke color change
-				btn.MouseEnter:Connect(function()
-					Tween(btn, { BackgroundColor3 = T.Hover }, 0.1)
-				end)
-				btn.MouseLeave:Connect(function()
-					Tween(btn, { BackgroundColor3 = T.Bg3 }, 0.1)
-				end)
+				btn.MouseEnter:Connect(function() Tween(btn, { BackgroundColor3 = T.Hover }, 0.1) end)
+				btn.MouseLeave:Connect(function() Tween(btn, { BackgroundColor3 = T.Bg3 }, 0.1) end)
 			end
 
 			function GB:AddLabel(text)
@@ -824,44 +816,37 @@ function Library:CreateWindow(cfg)
 	end
 
 	-- ================================================================
-	-- ESP Preview  –  pure 2D flat-figure, no ViewportFrame/WorldModel
+	--  ESP PREVIEW  —  3D ViewportFrame with rotating character clone
 	-- ================================================================
 	function Window:AddESPPreview()
-		local espColor = T.Accent
+		local espColor  = T.Accent
+		local charClone = nil
+		local cloneHRP  = nil
+		local partRelCF = {}
+		local rotAngle  = 0
 
-		-- Try to sample local player body colours for the preview figure
-		local skinCol = Color3.fromRGB(255, 200, 155)
-		local bodyCol = Color3.fromRGB(38,  36,  52)
-		local legCol  = Color3.fromRGB(28,  26,  40)
-		local shoeCol = Color3.fromRGB(14,  12,  20)
-		pcall(function()
-			local char = LocalPlayer.Character
-			if not char then return end
-			local h = char:FindFirstChild("Head")
-			local t = char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso")
-			local l = char:FindFirstChild("Left Leg") or char:FindFirstChild("LeftLowerLeg")
-			if h then skinCol = h.Color end
-			if t then bodyCol = t.Color end
-			if l then legCol  = l.Color end
-		end)
-
-		-- Preview window (attached to the right of WinFrame)
+		-- Outer panel (floats to the right of the main window)
+		local PW, PH = 136, 246
 		local previewFrame = Create("Frame", {
-			Name = "ESPPreview",
-			Size = UDim2.new(0, 124, 0, 218),
-			Position = UDim2.new(1, 10, 0, 0),
-			BackgroundColor3 = T.Bg1, BorderSizePixel = 0,
-			Visible = true, Parent = WinFrame,
+			Name             = "ESPPreview",
+			Size             = UDim2.new(0, PW, 0, PH),
+			Position         = UDim2.new(1, 12, 0, 0),
+			BackgroundColor3 = T.Bg1,
+			BorderSizePixel  = 0,
+			Visible          = true,
+			Parent           = WinFrame,
 		}, {
 			Create("UIStroke", { Color = T.BorderHi, Thickness = 1 }),
 			Create("UICorner", { CornerRadius = UDim.new(0, 6) }),
 		})
 
+		-- Top accent bar
 		Create("Frame", {
-			Size = UDim2.new(0, 50, 0, 2), Position = UDim2.new(0, 12, 0, 0),
+			Size = UDim2.new(0, 52, 0, 2), Position = UDim2.new(0, 10, 0, 0),
 			BackgroundColor3 = T.Accent, BorderSizePixel = 0, ZIndex = 2, Parent = previewFrame,
 		}, { Create("UICorner", { CornerRadius = UDim.new(1, 0) }) })
 
+		-- Header
 		local hdr = Create("Frame", {
 			Size = UDim2.new(1, 0, 0, 28), BackgroundColor3 = T.Bg0,
 			BorderSizePixel = 0, Parent = previewFrame,
@@ -878,155 +863,267 @@ function Library:CreateWindow(cfg)
 			TextXAlignment = Enum.TextXAlignment.Left, Parent = hdr,
 		})
 
-		local dot = Create("Frame", {
+		local accentDot = Create("Frame", {
 			Size = UDim2.new(0,6,0,6), Position = UDim2.new(1,-12,0.5,-3),
 			BackgroundColor3 = T.Accent, BorderSizePixel = 0, Parent = hdr,
 		}, { Create("UICorner", { CornerRadius = UDim.new(1,0) }) })
 
 		MakeDraggable(previewFrame, hdr)
 
-		local canvas = Create("Frame", {
-			Size = UDim2.new(1,0,1,-28), Position = UDim2.new(0,0,0,28),
-			BackgroundColor3 = Color3.fromRGB(6,5,10), BorderSizePixel = 0,
-			ClipsDescendants = true, Parent = previewFrame,
-		}, { Create("UICorner", { CornerRadius = UDim.new(0,6) }) })
+		-- ViewportFrame
+		local VP_H = PH - 28
+		local vp = Create("ViewportFrame", {
+			Size             = UDim2.new(1, 0, 0, VP_H),
+			Position         = UDim2.new(0, 0, 0, 28),
+			BackgroundColor3 = Color3.fromRGB(7, 6, 13),
+			Ambient          = Color3.fromRGB(110, 105, 140),
+			LightDirection   = Vector3.new(-0.6, -1, -0.5),
+			LightColor       = Color3.fromRGB(255, 248, 235),
+			ClipsDescendants = true,
+			Parent           = previewFrame,
+		}, { Create("UICorner", { CornerRadius = UDim.new(0, 6) }) })
 
-		-- Subtle floor line
-		Create("Frame", {
-			Size = UDim2.new(0.85,0,0,1), Position = UDim2.new(0.075,0,0.83,0),
-			BackgroundColor3 = Color3.fromRGB(20,18,30), BorderSizePixel = 0, Parent = canvas,
-		})
+		-- WorldModel (hosts the 3D character clone)
+		local wm = Instance.new("WorldModel")
+		wm.Parent = vp
 
-		-- ---------------------------------------------------------------
-		-- 2D flat figure  (R6 proportions, absolute pixel coords)
-		-- Canvas is 124 × 190 px.  Figure centre X = 62, top Y = 22.
-		-- ---------------------------------------------------------------
-		local CX, SY = 62, 22
+		-- Camera
+		local vpCam = Instance.new("Camera")
+		vpCam.FieldOfView = 42
+		vpCam.Parent = vp
+		vp.CurrentCamera = vpCam
 
-		local function Rect(w, h, ax, ay, col, cr)
-			return Create("Frame", {
-				Size     = UDim2.new(0, w, 0, h),
-				Position = UDim2.new(0, ax, 0, ay),
-				BackgroundColor3 = col, BorderSizePixel = 0, ZIndex = 2, Parent = canvas,
-			}, cr and { Create("UICorner", { CornerRadius = UDim.new(0, cr) }) } or nil)
+		-- ── Character clone setup ──
+		local function setupClone()
+			-- Clean up existing
+			if charClone then
+				pcall(function() charClone:Destroy() end)
+				charClone = nil; cloneHRP = nil; partRelCF = {}
+			end
+
+			local char = LocalPlayer.Character
+			if not char then return end
+			local root = char:FindFirstChild("HumanoidRootPart")
+			if not root then return end
+
+			charClone = char:Clone()
+			charClone.Name = "PunchyPreviewChar"
+
+			-- Strip everything that doesn't contribute to the look
+			for _, d in ipairs(charClone:GetDescendants()) do
+				if d:IsA("Script") or d:IsA("LocalScript") or d:IsA("ModuleScript")
+				   or d:IsA("Animator") or d:IsA("Animation") or d:IsA("BodyMover")
+				   or d:IsA("BillboardGui") or d:IsA("SurfaceGui") or d:IsA("Highlight")
+				   or d:IsA("SelectionBox") or d:IsA("ParticleEmitter") then
+					pcall(function() d:Destroy() end)
+				end
+			end
+
+			cloneHRP = charClone:FindFirstChild("HumanoidRootPart")
+			if not cloneHRP then charClone:Destroy(); charClone = nil; return end
+
+			-- Hide humanoid UI
+			local hum = charClone:FindFirstChildOfClass("Humanoid")
+			if hum then
+				hum.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+				hum.HealthDisplayType   = Enum.HumanoidHealthDisplayType.AlwaysOff
+			end
+
+			-- Anchor all parts and capture relative CFrames from HRP
+			for _, p in ipairs(charClone:GetDescendants()) do
+				if p:IsA("BasePart") then
+					p.Anchored   = true
+					p.CanCollide = false
+					p.CastShadow = false
+					if p ~= cloneHRP then
+						partRelCF[p] = cloneHRP.CFrame:ToObjectSpace(p.CFrame)
+					end
+				end
+			end
+
+			-- Place at world origin
+			cloneHRP.CFrame = CFrame.new(0, 0, 0)
+			for p, rel in pairs(partRelCF) do
+				if p and p.Parent then p.CFrame = CFrame.new(0,0,0) * rel end
+			end
+
+			charClone.Parent = wm
+
+			-- Position camera to frame the full character
+			-- R6 height ≈ 5 studs, centre ≈ Y 2.  R15 similar.
+			local charH = 5
+			local cy    = charH * 0.43
+			vpCam.CFrame = CFrame.new(Vector3.new(0, cy, charH * 1.25), Vector3.new(0, cy, 0))
 		end
 
-		-- Draw order: back → front (shoes first so legs render on top)
-		Rect(14, 7,  CX-26, SY+102, shoeCol, 2)   -- L shoe
-		Rect(14, 7,  CX+12, SY+102, shoeCol, 2)   -- R shoe
-		Rect(11, 33, CX-23, SY+68,  legCol,  2)   -- L leg
-		Rect(11, 33, CX+12, SY+68,  legCol,  2)   -- R leg
-		Rect( 9, 36, CX-24, SY+29,  bodyCol, 2)   -- L arm
-		Rect( 9, 36, CX+15, SY+29,  bodyCol, 2)   -- R arm
-		Rect(26, 40, CX-13, SY+27,  bodyCol, 2)   -- torso
-		Rect( 7,  9, CX- 3, SY+18,  skinCol, 2)   -- neck
-		Rect(20, 22, CX-10, SY,     skinCol, 5)   -- head
+		pcall(setupClone)
+		LocalPlayer.CharacterAdded:Connect(function(char)
+			char:WaitForChild("HumanoidRootPart", 10)
+			task.wait(0.6)
+			pcall(setupClone)
+		end)
 
-		-- ---------------------------------------------------------------
-		-- ESP overlay elements (off by default, toggled via Preview API)
-		-- Box bounds:  x=36, y=18, w=52, h=116
-		-- ---------------------------------------------------------------
-		local BOX_X, BOX_Y, BOX_W, BOX_H = 36, 18, 52, 116
+		-- Slow auto-rotation
+		local rotConn = RunService.Heartbeat:Connect(function(dt)
+			rotAngle = rotAngle + dt * 48
+			if not cloneHRP or not cloneHRP.Parent then return end
+			local newCF = CFrame.Angles(0, math.rad(rotAngle), 0)
+			cloneHRP.CFrame = newCF
+			for p, rel in pairs(partRelCF) do
+				if p and p.Parent then p.CFrame = newCF * rel end
+			end
+		end)
+		table.insert(Library._connections, rotConn)
 
-		-- Nametag above box
+		-- ── 2D overlay elements (placed inside vp, on top of the 3D scene) ──
+
+		-- Nametag
 		local nameTag = Create("TextLabel", {
-			Size = UDim2.new(0, BOX_W + 20, 0, 14),
-			Position = UDim2.new(0, BOX_X - 10, 0, BOX_Y - 17),
+			Size = UDim2.new(1, 0, 0, 15),
+			Position = UDim2.new(0, 0, 0, 3),
 			BackgroundTransparency = 1,
 			Text = LocalPlayer.DisplayName or "Player",
-			TextColor3 = espColor, TextSize = 10, Font = Enum.Font.GothamBold,
-			TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 8,
-			TextStrokeTransparency = 0.6, Visible = false, Parent = canvas,
+			TextColor3 = espColor,
+			TextSize = 10, Font = Enum.Font.GothamBold,
+			TextXAlignment = Enum.TextXAlignment.Center,
+			TextStrokeTransparency = 0.45,
+			TextStrokeColor3 = Color3.new(0,0,0),
+			ZIndex = 12, Visible = false, Parent = vp,
 		})
 
-		-- Box outline
-		local boxStroke = Instance.new("UIStroke")
-		boxStroke.Color = espColor; boxStroke.Thickness = 1.5
+		local distTag = Create("TextLabel", {
+			Size = UDim2.new(1, 0, 0, 11),
+			Position = UDim2.new(0, 0, 0, 19),
+			BackgroundTransparency = 1,
+			Text = "0m",
+			TextColor3 = T.TextMid,
+			TextSize = 9, Font = Enum.Font.Gotham,
+			TextXAlignment = Enum.TextXAlignment.Center,
+			TextStrokeTransparency = 0.5,
+			ZIndex = 12, Visible = false, Parent = vp,
+		})
+
+		-- Box frame — covers roughly the character silhouette in the viewport
+		-- VP is 136 wide, VP_H tall.  Character fills ≈ 60% width, starts at ~Y 30
+		local BX = 0.20   -- left padding (scale)
+		local BW = 0.60   -- box width (scale)
+		local BY = 0.165  -- top Y (scale)
+		local BH = 0.790  -- height (scale)
+
 		local boxFrame = Create("Frame", {
-			Size = UDim2.new(0, BOX_W, 0, BOX_H),
-			Position = UDim2.new(0, BOX_X, 0, BOX_Y),
-			BackgroundTransparency = 1, BorderSizePixel = 0,
-			ZIndex = 5, Visible = false, Parent = canvas,
+			Size             = UDim2.new(BW, 0, BH, 0),
+			Position         = UDim2.new(BX, 0, BY, 0),
+			BackgroundTransparency = 1,
+			BorderSizePixel  = 0,
+			ZIndex           = 8,
+			Visible          = false,
+			Parent           = vp,
 		})
-		boxStroke.Parent = boxFrame
+		local boxStroke = Create("UIStroke", { Color = espColor, Thickness = 1.5, Parent = boxFrame })
 
-		-- Box fill
 		local fillFrame = Create("Frame", {
-			Size = UDim2.new(1,0,1,0),
-			BackgroundColor3 = espColor, BackgroundTransparency = 0.75,
-			BorderSizePixel = 0, ZIndex = 4, Visible = false, Parent = boxFrame,
+			Size             = UDim2.new(1,0,1,0),
+			BackgroundColor3 = espColor,
+			BackgroundTransparency = 0.75,
+			BorderSizePixel  = 0,
+			ZIndex           = 7,
+			Visible          = false,
+			Parent           = boxFrame,
 		})
 
-		-- Health bar background
+		-- Health bar (left of box)
 		local hbBg = Create("Frame", {
-			Size = UDim2.new(0, 4, 0, BOX_H),
-			Position = UDim2.new(0, BOX_X - 8, 0, BOX_Y),
-			BackgroundColor3 = Color3.fromRGB(30,8,8),
-			BorderSizePixel = 0, ZIndex = 5, Visible = false, Parent = canvas,
+			Size             = UDim2.new(0, 4, 1, 0),
+			Position         = UDim2.new(0, -8, 0, 0),
+			BackgroundColor3 = Color3.fromRGB(22, 7, 7),
+			BorderSizePixel  = 0,
+			ZIndex           = 8,
+			Visible          = false,
+			Parent           = boxFrame,
 		}, { Create("UICorner", { CornerRadius = UDim.new(0, 2) }) })
 
-		-- Health fill (75 % health)
-		local hbFill = Create("Frame", {
-			Size = UDim2.new(1,0, 0.75,0), Position = UDim2.new(0,0, 0.25,0),
-			BackgroundColor3 = T.Green, BorderSizePixel = 0, Parent = hbBg,
-		}, { Create("UICorner", { CornerRadius = UDim.new(0,2) }) })
+		Create("Frame", {
+			Size             = UDim2.new(1, 0, 0.72, 0),
+			Position         = UDim2.new(0, 0, 0.28, 0),
+			BackgroundColor3 = T.Green,
+			BorderSizePixel  = 0,
+			Parent           = hbBg,
+		}, { Create("UICorner", { CornerRadius = UDim.new(0, 2) }) })
 
-		-- Skeleton container (positioned over the box)
+		-- Skeleton overlay (pixel coords relative to boxFrame)
+		-- boxFrame absolute ≈ 82 × 167 px (BW*136 × BH*VP_H)
 		local skelFrame = Create("Frame", {
-			Size = UDim2.new(0, BOX_W, 0, BOX_H),
-			Position = UDim2.new(0, BOX_X, 0, BOX_Y),
-			BackgroundTransparency = 1, BorderSizePixel = 0,
-			ZIndex = 7, Visible = false, Parent = canvas,
+			Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1,
+			BorderSizePixel = 0, ZIndex = 9, Visible = false, Parent = boxFrame,
 		})
 
-		-- Helper: draw a 1-pixel skeleton line inside skelFrame
-		local function SkelLine(w, h, x, y)
-			Create("Frame", {
-				Size = UDim2.new(0,w,0,h), Position = UDim2.new(0,x,0,y),
-				BackgroundColor3 = espColor, BorderSizePixel = 0,
-				ZIndex = 7, Parent = skelFrame,
+		local skelLines = {}
+
+		-- Draw a rotated 1-px-tall line between two absolute-pixel points inside skelFrame
+		local function SkelLine(x1, y1, x2, y2)
+			local dx, dy  = x2 - x1, y2 - y1
+			local len     = math.sqrt(dx*dx + dy*dy)
+			if len < 1 then return end
+			local angle   = math.deg(math.atan2(dy, dx))
+			local cx, cy2 = (x1+x2)/2, (y1+y2)/2
+			local line = Create("Frame", {
+				Size             = UDim2.new(0, len, 0, 2),
+				Position         = UDim2.new(0, cx - len/2, 0, cy2 - 1),
+				Rotation         = angle,
+				BackgroundColor3 = espColor,
+				BorderSizePixel  = 0,
+				ZIndex           = 9,
+				Parent           = skelFrame,
 			}, { Create("UICorner", { CornerRadius = UDim.new(1,0) }) })
+			table.insert(skelLines, line)
 		end
 
-		-- Key joint positions relative to skelFrame (BOX_X=36, BOX_Y=18):
-		--   Head centre:    x=26, y=4
-		--   Neck bottom:    x=26, y=28
-		--   Shoulders:      L=x=2,y=33   R=x=45,y=33   (arm centres)
-		--   Hip line:       y=71          L=x=7  R=x=37
-		SkelLine(1, 24, 25,  4)   -- head → neck (vertical)
-		SkelLine(43, 1,  2, 33)   -- shoulder line (horizontal)
-		SkelLine(1, 34,  2, 33)   -- L arm (vertical)
-		SkelLine(1, 34, 45, 33)   -- R arm (vertical)
-		SkelLine(1, 38, 25, 29)   -- spine  (vertical)
-		SkelLine(30, 1,  7, 71)   -- hip line (horizontal)
-		SkelLine(1, 34,  7, 71)   -- L leg (vertical)
-		SkelLine(1, 34, 36, 71)   -- R leg (vertical)
+		-- R6 joint positions, box ≈ 82 × 167 px
+		SkelLine(41,  5, 41, 24)          -- head → neck
+		SkelLine(41, 24, 16, 32)          -- neck → L shoulder
+		SkelLine(41, 24, 66, 32)          -- neck → R shoulder
+		SkelLine(16, 32, 11, 78)          -- L arm upper
+		SkelLine(11, 78,  9,110)          -- L arm lower
+		SkelLine(66, 32, 71, 78)          -- R arm upper
+		SkelLine(71, 78, 73,110)          -- R arm lower
+		SkelLine(41, 24, 41, 97)          -- spine
+		SkelLine(41, 97, 26,103)          -- L hip
+		SkelLine(41, 97, 56,103)          -- R hip
+		SkelLine(26,103, 24,148)          -- L thigh
+		SkelLine(24,148, 23,165)          -- L shin
+		SkelLine(56,103, 58,148)          -- R thigh
+		SkelLine(58,148, 59,165)          -- R shin
 
-		-- Chams full-canvas tint
-		local chamOverlay = Create("Frame", {
-			Size = UDim2.new(1,0,1,0),
-			BackgroundColor3 = espColor, BackgroundTransparency = 0.78,
-			BorderSizePixel = 0, ZIndex = 3, Visible = false, Parent = canvas,
-		})
+		-- Chams: a Highlight on the clone itself (shows through geometry)
+		local chamHL = Instance.new("Highlight")
+		chamHL.FillTransparency    = 0.45
+		chamHL.OutlineTransparency = 1
+		chamHL.FillColor           = espColor
+		chamHL.DepthMode           = Enum.HighlightDepthMode.AlwaysOnTop
+		chamHL.Enabled             = false
 
-		-- ---------------------------------------------------------------
-		-- Internal colour updater
-		-- ---------------------------------------------------------------
+		-- Attach chamHL once the clone is ready
+		task.delay(0.2, function()
+			if charClone then
+				chamHL.Adornee = charClone
+				chamHL.Parent  = charClone
+			end
+		end)
+
+		-- ── Internal colour propagation ──
 		local function updateColor(col)
 			espColor = col
-			dot.BackgroundColor3        = col
+			accentDot.BackgroundColor3  = col
 			boxStroke.Color             = col
 			fillFrame.BackgroundColor3  = col
 			nameTag.TextColor3          = col
-			chamOverlay.BackgroundColor3= col
-			for _, f in ipairs(skelFrame:GetChildren()) do
-				if f:IsA("Frame") then f.BackgroundColor3 = col end
+			chamHL.FillColor            = col
+			for _, l in ipairs(skelLines) do
+				if l and l.Parent then l.BackgroundColor3 = col end
 			end
 		end
 
-		-- ---------------------------------------------------------------
-		-- Public API
-		-- ---------------------------------------------------------------
+		-- ── Public Preview API ──
 		local Preview = {}
 
 		function Preview:SetVisible(v)
@@ -1034,9 +1131,10 @@ function Library:CreateWindow(cfg)
 		end
 
 		function Preview:SetBox(en, filled, trans)
-			boxFrame.Visible  = en
-			hbBg.Visible      = en
-			nameTag.Visible   = en
+			boxFrame.Visible = en
+			hbBg.Visible     = en
+			nameTag.Visible  = en
+			distTag.Visible  = en
 			if filled ~= nil then fillFrame.Visible = filled end
 			if trans   ~= nil then fillFrame.BackgroundTransparency = trans end
 		end
@@ -1051,8 +1149,13 @@ function Library:CreateWindow(cfg)
 		end
 
 		function Preview:SetChams(en, color)
-			chamOverlay.Visible = en
-			if color then updateColor(color); chamOverlay.BackgroundColor3 = color end
+			chamHL.Enabled = en
+			if color then updateColor(color) end
+			-- Re-attach if needed
+			if charClone and not chamHL.Adornee then
+				chamHL.Adornee = charClone
+				chamHL.Parent  = charClone
+			end
 		end
 
 		function Preview:SetColor(color)
