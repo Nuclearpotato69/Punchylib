@@ -275,20 +275,23 @@ local kblBody = Create("Frame", {
 MakeDraggable(KeybindListFrame, kblHeader)
 Library._kblFrame = KeybindListFrame
 Library._kblBody  = kblBody
+-- FIX: _kblEntries stores plain Lua tables {frame, keyLabel, stateLabel}
+-- so we never attempt to set arbitrary properties on Roblox Instances.
 Library._kblEntries = {}
 
 local function refreshKBL()
 	local count = 0
 	for id, entry in pairs(Library._kblEntries) do
 		local b = Library._binds[id]
-		if b and b.key and entry and entry.Parent then
+		-- FIX: entry is now a Lua table; check entry.frame.Parent instead of entry.Parent
+		if b and b.key and entry and entry.frame and entry.frame.Parent then
 			local keyName = b.key.Name:upper()
 			entry.keyLabel.Text = "["..keyName.."]"
 			if b.mode == "toggle" then
-				entry.stateLabel.Text    = b.state and "ON" or "OFF"
+				entry.stateLabel.Text       = b.state and "ON" or "OFF"
 				entry.stateLabel.TextColor3 = b.state and T.Green or T.Red
 			else
-				entry.stateLabel.Text    = b.state and "HOLD" or ""
+				entry.stateLabel.Text       = b.state and "HOLD" or ""
 				entry.stateLabel.TextColor3 = T.TextMid
 			end
 			count = count + 1
@@ -339,7 +342,8 @@ end
 function Library:RemoveBind(id)
 	Library._binds[id] = nil
 	if Library._kblEntries[id] then
-		pcall(function() Library._kblEntries[id]:Destroy() end)
+		-- FIX: entry is a table now, so destroy entry.frame not entry itself
+		pcall(function() Library._kblEntries[id].frame:Destroy() end)
 		Library._kblEntries[id] = nil
 	end
 	refreshKBL()
@@ -1291,7 +1295,7 @@ function Library:CreateWindow(cfg)
 					Parent=kblEntry,
 				})
 				local kblState = Create("TextLabel", {
-					Size=UDim2.new(1,0,0,0),
+					Size=UDim2.new(1,0,0,10),
 					BackgroundTransparency=1,
 					Text="",
 					TextColor3=T.TextMid,
@@ -1300,9 +1304,14 @@ function Library:CreateWindow(cfg)
 					TextXAlignment=Enum.TextXAlignment.Right,
 					Parent=kblEntry,
 				})
-				kblEntry.keyLabel   = kblKey
-				kblEntry.stateLabel = kblState
-				Library._kblEntries[k] = kblEntry
+
+				-- FIX: store as a plain Lua table instead of setting properties on a
+				-- Roblox Instance (which throws "X is not a valid member of Frame").
+				Library._kblEntries[k] = {
+					frame      = kblEntry,
+					keyLabel   = kblKey,
+					stateLabel = kblState,
+				}
 				refreshKBL()
 
 				row.MouseButton1Click:Connect(function()
@@ -1447,11 +1456,18 @@ function Library:CreateWindow(cfg)
 					ClearOnFocus = false,
 				})
 
+				-- FIX: forward-declare profileDropdown so the Save button closure can
+				-- reference it after it is assigned below (Lua local scoping rule).
+				local profileDropdown
+
 				self:AddButton({
 					Text = "Save Config",
 					Callback = function()
 						Library:SaveConfig(nameBox.Value, folder)
-						profileDropdown:SetValue(nameBox.Value)
+						-- profileDropdown is assigned by the time any button is clicked
+						if profileDropdown then
+							profileDropdown:SetValue(nameBox.Value)
+						end
 					end,
 				})
 
@@ -1461,7 +1477,8 @@ function Library:CreateWindow(cfg)
 					return list
 				end
 
-				local profileDropdown = self:AddDropdown("__cfg_profile", {
+				-- Assign (not re-declare) so the closure above sees the value
+				profileDropdown = self:AddDropdown("__cfg_profile", {
 					Text   = "Load Profile",
 					Values = getProfiles(),
 					Default = profileNames[1] or "",
@@ -1743,8 +1760,13 @@ function Library:CreateWindow(cfg)
 		chamHL.FillTransparency=0.5; chamHL.OutlineTransparency=0.3
 		chamHL.FillColor=espColor; chamHL.OutlineColor=espColor
 		chamHL.DepthMode=Enum.HighlightDepthMode.AlwaysOnTop; chamHL.Enabled=false
+		-- FIX: parent the Highlight to the WorldModel first so it is valid,
+		-- then set Adornee once the clone is ready.
+		chamHL.Parent = wm
 		task.delay(0.5, function()
-			if charClone then chamHL.Adornee=charClone; chamHL.Parent=charClone end
+			if charClone and charClone.Parent then
+				chamHL.Adornee = charClone
+			end
 		end)
 
 		local function updateColor(col)
@@ -1813,8 +1835,8 @@ function Library:CreateWindow(cfg)
 					chamHL.Enabled = chamsEn
 					if chamsC then chamHL.FillColor=chamsC; chamHL.OutlineColor=chamsC end
 					if chamsT then chamHL.FillTransparency=chamsT/100 end
-					if chamsEn and charClone and not chamHL.Adornee then
-						chamHL.Adornee=charClone; chamHL.Parent=charClone
+					if chamsEn and charClone and charClone.Parent and not chamHL.Adornee then
+						chamHL.Adornee = charClone
 					end
 				end
 			end
@@ -1855,7 +1877,9 @@ function Library:CreateWindow(cfg)
 			chamHL.Enabled = en
 			if color then updateColor(color) end
 			if trans  then chamHL.FillTransparency = trans end
-			if en and charClone and not chamHL.Adornee then chamHL.Adornee=charClone; chamHL.Parent=charClone end
+			if en and charClone and charClone.Parent and not chamHL.Adornee then
+				chamHL.Adornee = charClone
+			end
 		end
 
 		return Preview
