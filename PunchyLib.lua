@@ -5,8 +5,9 @@ local RunService=game:GetService("RunService")
 local CoreGui=game:GetService("CoreGui")
 local HttpService=game:GetService("HttpService")
 local LP=Players.LocalPlayer
-local WIN_W,TITLE_H,TAB_H,STATUS_H,CONTENT_H=440,32,30,22,380
-local WIN_H=TITLE_H+TAB_H+CONTENT_H+STATUS_H
+local WIN_W,TITLE_H,TAB_H,STATUS_H,CONTENT_H=440,32,30,380,380
+local WIN_H=TITLE_H+TAB_H+CONTENT_H+STATUS_H-CONTENT_H+CONTENT_H
+WIN_H=TITLE_H+TAB_H+CONTENT_H+22
 local function Create(class,props,children)
 	local i=Instance.new(class)
 	for k,v in pairs(props or{})do i[k]=v end
@@ -50,10 +51,12 @@ Library._connections={}
 Library._cleanups={}
 Library._binds={}
 Library._depListeners={}
+Library._themeRefs={}
 getgenv().PunchyLib=Library
-local _themeRefs={}
-local function ThemeRef(inst,prop,key)table.insert(_themeRefs,{inst,prop,key});return inst end
-local function ApplyTheme()for _,r in ipairs(_themeRefs)do pcall(function()r[1][r[2]]=T[r[3]]end)end end
+local function TR(inst,prop,key)table.insert(Library._themeRefs,{inst,prop,key});return inst end
+local function ApplyTheme()
+	for _,r in ipairs(Library._themeRefs)do pcall(function()r[1][r[2]]=T[r[3]]end)end
+end
 local ScreenGui
 do
 	pcall(function()if CoreGui:FindFirstChild("PunchyLib")then CoreGui.PunchyLib:Destroy()end end)
@@ -69,8 +72,18 @@ do
 	if not ok or not ScreenGui.Parent then ScreenGui.Parent=LP:WaitForChild("PlayerGui")end
 end
 Library._screenGui=ScreenGui
-local CPOverlay=Create("Frame",{Size=UDim2.new(1,0,1,0),BackgroundTransparency=1,BorderSizePixel=0,ZIndex=500,Visible=false,Parent=ScreenGui})
-Library._cpOverlay=CPOverlay
+local CPHolder=Create("Frame",{Size=UDim2.new(1,0,1,0),BackgroundTransparency=1,BorderSizePixel=0,ZIndex=2000,Visible=true,Parent=ScreenGui})
+Library._cpHolder=CPHolder
+local _openCP=nil
+CPHolder.InputBegan:Connect(function(inp)
+	if inp.UserInputType==Enum.UserInputType.MouseButton1 and _openCP then
+		local mp=UIS:GetMouseLocation()
+		local p=_openCP.AbsolutePosition;local sz=_openCP.AbsoluteSize
+		if mp.X<p.X or mp.X>p.X+sz.X or mp.Y<p.Y or mp.Y>p.Y+sz.Y then
+			_openCP.Visible=false;_openCP=nil
+		end
+	end
+end)
 local _nGui,_nStack,_nOrder=nil,nil,0
 do
 	pcall(function()if CoreGui:FindFirstChild("PunchyNotifs")then CoreGui.PunchyNotifs:Destroy()end end)
@@ -103,24 +116,24 @@ function Library:Notify(msg,duration,kind)
 	task.delay(duration,function()Tween(card,{BackgroundTransparency=1},0.22);task.wait(0.23);pcall(function()card:Destroy()end)end)
 end
 local KBLFrame=Create("Frame",{
-	Name="KeybindList",Size=UDim2.new(0,224,0,0),Position=UDim2.new(0,12,1,-12),AnchorPoint=Vector2.new(0,1),
+	Name="KeybindList",Size=UDim2.new(0,180,0,0),Position=UDim2.new(0,12,0.5,-50),AnchorPoint=Vector2.new(0,0.5),
 	BackgroundColor3=T.Bg0,BorderSizePixel=0,AutomaticSize=Enum.AutomaticSize.Y,ClipsDescendants=false,Visible=false,Parent=ScreenGui
-},{Create("UICorner",{CornerRadius=UDim.new(0,8)}),Create("UIStroke",{Color=T.BorderHi,Thickness=1})})
-Create("Frame",{Size=UDim2.new(0,44,0,2),Position=UDim2.new(0,12,0,0),BackgroundColor3=T.Accent,BorderSizePixel=0,ZIndex=3,Parent=KBLFrame},{Create("UICorner",{CornerRadius=UDim.new(1,0)})})
-local kblHdr=Create("Frame",{Size=UDim2.new(1,0,0,34),BackgroundColor3=T.Bg1,BorderSizePixel=0,Parent=KBLFrame},{
-	Create("UICorner",{CornerRadius=UDim.new(0,8)}),
-	Create("Frame",{Size=UDim2.new(1,0,0,10),Position=UDim2.new(0,0,1,-10),BackgroundColor3=T.Bg1,BorderSizePixel=0}),
+},{Create("UICorner",{CornerRadius=UDim.new(0,6)}),Create("UIStroke",{Color=T.BorderHi,Thickness=1})})
+Create("Frame",{Size=UDim2.new(0,32,0,2),Position=UDim2.new(0,10,0,0),BackgroundColor3=T.Accent,BorderSizePixel=0,ZIndex=3,Parent=KBLFrame},{Create("UICorner",{CornerRadius=UDim.new(1,0)})})
+local kblHdr=Create("Frame",{Size=UDim2.new(1,0,0,26),BackgroundColor3=T.Bg1,BorderSizePixel=0,Parent=KBLFrame},{
+	Create("UICorner",{CornerRadius=UDim.new(0,6)}),
+	Create("Frame",{Size=UDim2.new(1,0,0,8),Position=UDim2.new(0,0,1,-8),BackgroundColor3=T.Bg1,BorderSizePixel=0}),
 	Create("Frame",{Size=UDim2.new(1,0,0,1),Position=UDim2.new(0,0,1,-1),BackgroundColor3=T.Border,BorderSizePixel=0}),
 })
-Create("Frame",{Size=UDim2.new(0,3,0,14),Position=UDim2.new(0,10,0.5,-7),BackgroundColor3=T.Accent,BorderSizePixel=0,Parent=kblHdr},{Create("UICorner",{CornerRadius=UDim.new(1,0)})})
-Create("TextLabel",{Size=UDim2.new(1,-60,1,0),Position=UDim2.new(0,20,0,0),BackgroundTransparency=1,Text="KEYBINDS",TextColor3=T.TextMid,TextSize=9,Font=Enum.Font.GothamBold,TextXAlignment=Enum.TextXAlignment.Left,Parent=kblHdr})
-local kblCount=Create("TextLabel",{Size=UDim2.new(0,20,0,14),Position=UDim2.new(1,-28,0.5,-7),BackgroundColor3=T.Bg3,BorderSizePixel=0,Text="0",TextColor3=T.TextMid,TextSize=9,Font=Enum.Font.GothamBold,TextXAlignment=Enum.TextXAlignment.Center,Parent=kblHdr},{
+Create("Frame",{Size=UDim2.new(0,3,0,12),Position=UDim2.new(0,8,0.5,-6),BackgroundColor3=T.Accent,BorderSizePixel=0,Parent=kblHdr},{Create("UICorner",{CornerRadius=UDim.new(1,0)})})
+Create("TextLabel",{Size=UDim2.new(1,-50,1,0),Position=UDim2.new(0,17,0,0),BackgroundTransparency=1,Text="KEYBINDS",TextColor3=T.TextMid,TextSize=8,Font=Enum.Font.GothamBold,TextXAlignment=Enum.TextXAlignment.Left,Parent=kblHdr})
+local kblCount=Create("TextLabel",{Size=UDim2.new(0,16,0,12),Position=UDim2.new(1,-22,0.5,-6),BackgroundColor3=T.Bg3,BorderSizePixel=0,Text="0",TextColor3=T.TextMid,TextSize=8,Font=Enum.Font.GothamBold,TextXAlignment=Enum.TextXAlignment.Center,Parent=kblHdr},{
 	Create("UICorner",{CornerRadius=UDim.new(1,0)}),Create("UIStroke",{Color=T.Border,Thickness=1})
 })
 MakeDraggable(KBLFrame,kblHdr)
-local kblBody=Create("Frame",{Size=UDim2.new(1,0,0,0),Position=UDim2.new(0,0,0,34),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1,BorderSizePixel=0,Parent=KBLFrame},{
-	Create("UIListLayout",{SortOrder=Enum.SortOrder.LayoutOrder,Padding=UDim.new(0,1)}),
-	Create("UIPadding",{PaddingTop=UDim.new(0,4),PaddingBottom=UDim.new(0,6)}),
+local kblBody=Create("Frame",{Size=UDim2.new(1,0,0,0),Position=UDim2.new(0,0,0,26),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1,BorderSizePixel=0,Parent=KBLFrame},{
+	Create("UIListLayout",{SortOrder=Enum.SortOrder.LayoutOrder,Padding=UDim.new(0,0)}),
+	Create("UIPadding",{PaddingTop=UDim.new(0,3),PaddingBottom=UDim.new(0,4)}),
 })
 Library._kblFrame=KBLFrame;Library._kblBody=kblBody;Library._kblEntries={}
 local function refreshKBL()
@@ -144,11 +157,12 @@ local function refreshKBL()
 	local show=count>0
 	if show~=KBLFrame.Visible then
 		if show then
-			KBLFrame.Visible=true;KBLFrame.Position=UDim2.new(0,12,1,-6)
-			Tween(KBLFrame,{Position=UDim2.new(0,12,1,-12)},0.18)
+			KBLFrame.Visible=true
 		else
-			Tween(KBLFrame,{Position=UDim2.new(0,12,1,-6)},0.14)
-			task.delay(0.15,function()if not(count>0)then KBLFrame.Visible=false;KBLFrame.Position=UDim2.new(0,12,1,-12)end end)
+			task.delay(0.15,function()
+				local c2=0;for _ in pairs(Library._kblEntries)do c2=c2+1 end
+				if c2==0 then KBLFrame.Visible=false end
+			end)
 		end
 	end
 end
@@ -177,6 +191,10 @@ function Library:RemoveBind(id)
 	if Library._kblEntries[id]then pcall(function()Library._kblEntries[id].frame:Destroy()end);Library._kblEntries[id]=nil end
 	refreshKBL()
 end
+function Library:SetThemeColor(key,color)
+	T[key]=color;ApplyTheme()
+end
+function Library:GetThemeColor(key)return T[key]end
 function Library:SaveConfig(name,folder)
 	folder=folder or"Punchy";name=name or"default"
 	local ok=pcall(function()
@@ -227,33 +245,6 @@ function Library:GetProfiles(folder)
 	end)
 	return list
 end
-function Library:SaveTheme(name,folder)
-	folder=folder or"PunchyThemes";name=name or"default"
-	local ok=pcall(function()
-		if not isfolder(folder)then makefolder(folder)end
-		local data={}
-		for k,v in pairs(T)do data[k]={r=v.R,g=v.G,b=v.B}end
-		writefile(folder.."/"..name..".json",HttpService:JSONEncode(data))
-	end)
-	if ok then Library:Notify("Theme saved: "..name,2,"success")else Library:Notify("Theme save failed!",2,"error")end
-end
-function Library:LoadTheme(name,folder)
-	folder=folder or"PunchyThemes";name=name or"default"
-	local ok,raw=pcall(readfile,folder.."/"..name..".json")
-	if not ok or not raw then Library:Notify("No theme: "..name,2,"error");return end
-	local ok2,data=pcall(HttpService.JSONDecode,HttpService,raw)
-	if not ok2 then Library:Notify("Theme corrupted!",2,"error");return end
-	for k,v in pairs(data)do if T[k]and type(v)=="table"then T[k]=Color3.new(v.r,v.g,v.b)end end
-	ApplyTheme();Library:Notify("Theme loaded: "..name,2,"success")
-end
-function Library:GetThemes(folder)
-	folder=folder or"PunchyThemes";local list={}
-	pcall(function()
-		if not isfolder(folder)then return end
-		for _,f in ipairs(listfiles(folder))do local n=f:match("([^/\\]+)%.json$");if n then table.insert(list,n)end end
-	end)
-	return list
-end
 function Library:RegisterCleanup(fn)table.insert(Library._cleanups,fn)end
 local function BuildLogo(parent,x,y)
 	for i,b in ipairs({{12,12},{8,8},{5,5}})do
@@ -266,26 +257,26 @@ local function MakeColorPicker(k,defaultColor,cb)
 	local h,s,v=Color3.toHSV(defaultColor);local cur=defaultColor
 	local SV_W,SV_H,HUE_W,PAD=148,110,14,10
 	local tW=PAD+SV_W+PAD/2+HUE_W+PAD;local tH=PAD+SV_H+8+22+PAD
-	local pf=Create("Frame",{Size=UDim2.new(0,tW,0,tH),BackgroundColor3=T.Bg2,BorderSizePixel=0,Visible=false,ZIndex=600,Parent=CPOverlay},{
+	local pf=Create("Frame",{Size=UDim2.new(0,tW,0,tH),BackgroundColor3=T.Bg2,BorderSizePixel=0,Visible=false,ZIndex=3000,Parent=CPHolder},{
 		Create("UICorner",{CornerRadius=UDim.new(0,6)}),Create("UIStroke",{Color=T.BorderHi,Thickness=1})
 	})
-	local svA=Create("Frame",{Size=UDim2.new(0,SV_W,0,SV_H),Position=UDim2.new(0,PAD,0,PAD),BackgroundColor3=Color3.fromHSV(h,1,1),BorderSizePixel=0,ClipsDescendants=true,ZIndex=601,Parent=pf},{Create("UICorner",{CornerRadius=UDim.new(0,3)})})
-	local so=Create("Frame",{Size=UDim2.new(1,0,1,0),BackgroundColor3=Color3.new(1,1,1),BorderSizePixel=0,ZIndex=602,Parent=svA})
+	local svA=Create("Frame",{Size=UDim2.new(0,SV_W,0,SV_H),Position=UDim2.new(0,PAD,0,PAD),BackgroundColor3=Color3.fromHSV(h,1,1),BorderSizePixel=0,ClipsDescendants=true,ZIndex=3001,Parent=pf},{Create("UICorner",{CornerRadius=UDim.new(0,3)})})
+	local so=Create("Frame",{Size=UDim2.new(1,0,1,0),BackgroundColor3=Color3.new(1,1,1),BorderSizePixel=0,ZIndex=3002,Parent=svA})
 	Create("UIGradient",{Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,0),NumberSequenceKeypoint.new(1,1)}),Rotation=0,Parent=so})
-	local vo=Create("Frame",{Size=UDim2.new(1,0,1,0),BackgroundColor3=Color3.new(0,0,0),BorderSizePixel=0,ZIndex=603,Parent=svA})
+	local vo=Create("Frame",{Size=UDim2.new(1,0,1,0),BackgroundColor3=Color3.new(0,0,0),BorderSizePixel=0,ZIndex=3003,Parent=svA})
 	Create("UIGradient",{Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,1),NumberSequenceKeypoint.new(1,0)}),Rotation=90,Parent=vo})
-	local svc=Create("Frame",{Size=UDim2.new(0,10,0,10),AnchorPoint=Vector2.new(.5,.5),Position=UDim2.new(s,0,1-v,0),BackgroundColor3=Color3.new(1,1,1),BorderSizePixel=0,ZIndex=604,Parent=svA},{Create("UICorner",{CornerRadius=UDim.new(1,0)}),Create("UIStroke",{Color=Color3.new(0,0,0),Thickness=1.5})})
-	local hb=Create("Frame",{Size=UDim2.new(0,HUE_W,0,SV_H),Position=UDim2.new(0,PAD+SV_W+PAD/2,0,PAD),BorderSizePixel=0,ClipsDescendants=true,ZIndex=601,Parent=pf},{Create("UICorner",{CornerRadius=UDim.new(0,3)})})
+	local svc=Create("Frame",{Size=UDim2.new(0,10,0,10),AnchorPoint=Vector2.new(.5,.5),Position=UDim2.new(s,0,1-v,0),BackgroundColor3=Color3.new(1,1,1),BorderSizePixel=0,ZIndex=3004,Parent=svA},{Create("UICorner",{CornerRadius=UDim.new(1,0)}),Create("UIStroke",{Color=Color3.new(0,0,0),Thickness=1.5})})
+	local hb=Create("Frame",{Size=UDim2.new(0,HUE_W,0,SV_H),Position=UDim2.new(0,PAD+SV_W+PAD/2,0,PAD),BorderSizePixel=0,ClipsDescendants=true,ZIndex=3001,Parent=pf},{Create("UICorner",{CornerRadius=UDim.new(0,3)})})
 	Create("UIGradient",{Color=ColorSequence.new({
 		ColorSequenceKeypoint.new(0,Color3.fromHSV(0,1,1)),ColorSequenceKeypoint.new(.167,Color3.fromHSV(.167,1,1)),
 		ColorSequenceKeypoint.new(.333,Color3.fromHSV(.333,1,1)),ColorSequenceKeypoint.new(.5,Color3.fromHSV(.5,1,1)),
 		ColorSequenceKeypoint.new(.667,Color3.fromHSV(.667,1,1)),ColorSequenceKeypoint.new(.833,Color3.fromHSV(.833,1,1)),
 		ColorSequenceKeypoint.new(1,Color3.fromHSV(0,1,1)),
 	}),Rotation=90,Parent=hb})
-	local hc=Create("Frame",{Size=UDim2.new(1,4,0,3),AnchorPoint=Vector2.new(.5,.5),Position=UDim2.new(.5,0,h,0),BackgroundColor3=Color3.new(1,1,1),BorderSizePixel=0,ZIndex=602,Parent=hb},{Create("UICorner",{CornerRadius=UDim.new(1,0)}),Create("UIStroke",{Color=Color3.new(0,0,0),Thickness=1})})
+	local hc=Create("Frame",{Size=UDim2.new(1,4,0,3),AnchorPoint=Vector2.new(.5,.5),Position=UDim2.new(.5,0,h,0),BackgroundColor3=Color3.new(1,1,1),BorderSizePixel=0,ZIndex=3002,Parent=hb},{Create("UICorner",{CornerRadius=UDim.new(1,0)}),Create("UIStroke",{Color=Color3.new(0,0,0),Thickness=1})})
 	local bY=PAD+SV_H+8
-	local ps=Create("Frame",{Size=UDim2.new(0,22,0,18),Position=UDim2.new(0,PAD,0,bY+2),BackgroundColor3=cur,BorderSizePixel=0,ZIndex=601,Parent=pf},{Create("UICorner",{CornerRadius=UDim.new(0,3)}),Create("UIStroke",{Color=T.BorderHi,Thickness=1})})
-	local hx=Create("TextBox",{Size=UDim2.new(0,tW-PAD*2-28,0,22),Position=UDim2.new(0,PAD+28,0,bY),BackgroundColor3=T.Input,BorderSizePixel=0,Text=C3Hex(cur),TextColor3=T.TextHi,PlaceholderText="#RRGGBB",PlaceholderColor3=T.TextLo,TextSize=10,Font=Enum.Font.GothamMedium,TextXAlignment=Enum.TextXAlignment.Left,ClearTextOnFocus=false,ZIndex=601,Parent=pf},{Create("UICorner",{CornerRadius=UDim.new(0,3)}),Create("UIStroke",{Color=T.BorderHi,Thickness=1}),Create("UIPadding",{PaddingLeft=UDim.new(0,6)})})
+	local ps=Create("Frame",{Size=UDim2.new(0,22,0,18),Position=UDim2.new(0,PAD,0,bY+2),BackgroundColor3=cur,BorderSizePixel=0,ZIndex=3001,Parent=pf},{Create("UICorner",{CornerRadius=UDim.new(0,3)}),Create("UIStroke",{Color=T.BorderHi,Thickness=1})})
+	local hx=Create("TextBox",{Size=UDim2.new(0,tW-PAD*2-28,0,22),Position=UDim2.new(0,PAD+28,0,bY),BackgroundColor3=T.Input,BorderSizePixel=0,Text=C3Hex(cur),TextColor3=T.TextHi,PlaceholderText="#RRGGBB",PlaceholderColor3=T.TextLo,TextSize=10,Font=Enum.Font.GothamMedium,TextXAlignment=Enum.TextXAlignment.Left,ClearTextOnFocus=false,ZIndex=3001,Parent=pf},{Create("UICorner",{CornerRadius=UDim.new(0,3)}),Create("UIStroke",{Color=T.BorderHi,Thickness=1}),Create("UIPadding",{PaddingLeft=UDim.new(0,6)})})
 	local function upd(nh,ns,nv)
 		h=math.clamp(nh or h,0,1);s=math.clamp(ns or s,0,1);v=math.clamp(nv or v,0,1)
 		cur=Color3.fromHSV(h,s,v);svA.BackgroundColor3=Color3.fromHSV(h,1,1)
@@ -294,46 +285,57 @@ local function MakeColorPicker(k,defaultColor,cb)
 		local o=Library.Options[k];if o then o._val=cur end
 	end
 	local svD,huD=false,false
-	svA.InputBegan:Connect(function(i)if i.UserInputType==Enum.UserInputType.MouseButton1 then svD=true;local a=svA.AbsolutePosition;local sz=svA.AbsoluteSize;upd(h,math.clamp((i.Position.X-a.X)/sz.X,0,1),1-math.clamp((i.Position.Y-a.Y)/sz.Y,0,1))end end)
-	hb.InputBegan:Connect(function(i)if i.UserInputType==Enum.UserInputType.MouseButton1 then huD=true;local a=hb.AbsolutePosition;local sz=hb.AbsoluteSize;upd(math.clamp((i.Position.Y-a.Y)/sz.Y,0,1),s,v)end end)
+	svA.InputBegan:Connect(function(i)
+		if i.UserInputType==Enum.UserInputType.MouseButton1 then
+			svD=true;local a=svA.AbsolutePosition;local sz=svA.AbsoluteSize
+			upd(h,math.clamp((i.Position.X-a.X)/sz.X,0,1),1-math.clamp((i.Position.Y-a.Y)/sz.Y,0,1))
+		end
+	end)
+	hb.InputBegan:Connect(function(i)
+		if i.UserInputType==Enum.UserInputType.MouseButton1 then
+			huD=true;local a=hb.AbsolutePosition;local sz=hb.AbsoluteSize
+			upd(math.clamp((i.Position.Y-a.Y)/sz.Y,0,1),s,v)
+		end
+	end)
 	table.insert(Library._connections,UIS.InputChanged:Connect(function(i)
 		if i.UserInputType==Enum.UserInputType.MouseMovement then
 			if svD then local a=svA.AbsolutePosition;local sz=svA.AbsoluteSize;upd(h,math.clamp((i.Position.X-a.X)/sz.X,0,1),1-math.clamp((i.Position.Y-a.Y)/sz.Y,0,1))end
 			if huD then local a=hb.AbsolutePosition;local sz=hb.AbsoluteSize;upd(math.clamp((i.Position.Y-a.Y)/sz.Y,0,1),s,v)end
 		end
 	end))
-	table.insert(Library._connections,UIS.InputEnded:Connect(function(i)if i.UserInputType==Enum.UserInputType.MouseButton1 then svD=false;huD=false end end))
+	table.insert(Library._connections,UIS.InputEnded:Connect(function(i)
+		if i.UserInputType==Enum.UserInputType.MouseButton1 then svD=false;huD=false end
+	end))
 	local hxSt=hx:FindFirstChildOfClass("UIStroke")
 	hx.Focused:Connect(function()if hxSt then Tween(hxSt,{Color=T.Accent},.12)end end)
 	hx.FocusLost:Connect(function()
 		if hxSt then Tween(hxSt,{Color=T.BorderHi},.12)end
 		local nc=HexC3(hx.Text);if nc then local nh,ns,nv=Color3.toHSV(nc);upd(nh,ns,nv)else hx.Text=C3Hex(cur)end
 	end)
-	table.insert(Library._connections,CPOverlay.InputBegan:Connect(function(inp)
-		if inp.UserInputType==Enum.UserInputType.MouseButton1 then
-			local mp=UIS:GetMouseLocation();local p=pf.AbsolutePosition;local sz=pf.AbsoluteSize
-			if mp.X<p.X or mp.X>p.X+sz.X or mp.Y<p.Y or mp.Y>p.Y+sz.Y then pf.Visible=false;CPOverlay.Visible=false end
-		end
-	end))
-	local function open(sw)
-		local a=sw.AbsolutePosition;local cam=workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1920,1080)
-		local px=a.X+sw.AbsoluteSize.X+4;local py=a.Y-4
-		if px+tW>cam.X then px=a.X-tW-4 end;if py+tH>cam.Y then py=cam.Y-tH-4 end;if py<0 then py=4 end
-		pf.Position=UDim2.new(0,px,0,py);pf.Visible=true;CPOverlay.Visible=true;upd(h,s,v)
+	local function openPicker(sw)
+		if _openCP and _openCP~=pf then _openCP.Visible=false end
+		local cam=workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1920,1080)
+		local a=sw.AbsolutePosition
+		local px=a.X+sw.AbsoluteSize.X+6
+		local py=a.Y-4
+		if px+tW>cam.X-4 then px=a.X-tW-6 end
+		if py+tH>cam.Y-4 then py=cam.Y-tH-4 end
+		if py<4 then py=4 end
+		pf.Position=UDim2.new(0,px,0,py);pf.Visible=true;_openCP=pf;upd(h,s,v)
 	end
-	return pf,open,function()return cur end,function(nc)
+	return pf,openPicker,function()return cur end,function(nc)
 		local nh,ns,nv=Color3.toHSV(nc);h,s,v=nh,ns,nv;cur=nc
 		svA.BackgroundColor3=Color3.fromHSV(h,1,1);svc.Position=UDim2.new(s,0,1-v,0)
 		hc.Position=UDim2.new(.5,0,h,0);ps.BackgroundColor3=cur;hx.Text=C3Hex(cur)
 	end
 end
 local function MakeModeMenu(row,getMode,setMode)
-	local menu=Create("Frame",{Size=UDim2.new(0,80,0,50),BackgroundColor3=T.Bg2,BorderSizePixel=0,Visible=false,ZIndex=300,Parent=ScreenGui},{
+	local menu=Create("Frame",{Size=UDim2.new(0,80,0,50),BackgroundColor3=T.Bg2,BorderSizePixel=0,Visible=false,ZIndex=400,Parent=ScreenGui},{
 		Create("UICorner",{CornerRadius=UDim.new(0,4)}),Create("UIStroke",{Color=T.BorderHi,Thickness=1}),
 		Create("UIListLayout",{SortOrder=Enum.SortOrder.LayoutOrder})
 	})
 	local function MItem(txt,mode)
-		local btn=Create("TextButton",{Size=UDim2.new(1,0,0,24),BackgroundTransparency=1,Text=txt,TextColor3=T.TextHi,TextSize=10,Font=Enum.Font.Gotham,BorderSizePixel=0,ZIndex=301,Parent=menu},{Create("UIPadding",{PaddingLeft=UDim.new(0,8)})})
+		local btn=Create("TextButton",{Size=UDim2.new(1,0,0,24),BackgroundTransparency=1,Text=txt,TextColor3=T.TextHi,TextSize=10,Font=Enum.Font.Gotham,BorderSizePixel=0,ZIndex=401,Parent=menu},{Create("UIPadding",{PaddingLeft=UDim.new(0,8)})})
 		btn.TextXAlignment=Enum.TextXAlignment.Left
 		btn.MouseButton1Click:Connect(function()setMode(mode);menu.Visible=false end)
 		btn.MouseEnter:Connect(function()Tween(btn,{TextColor3=T.Accent},.08)end)
@@ -362,12 +364,14 @@ function Library:CreateWindow(cfg)
 	local WF=Create("Frame",{Name="Window",Size=UDim2.new(0,WIN_W,0,WIN_H),Position=pos,
 		BackgroundColor3=T.Bg1,BorderSizePixel=0,ClipsDescendants=false,Visible=autoshow,Parent=ScreenGui
 	},{Create("UIStroke",{Color=T.BorderHi,Thickness=1}),Create("UICorner",{CornerRadius=UDim.new(0,6)})})
+	TR(WF,"BackgroundColor3","Bg1");TR(WF:FindFirstChildOfClass("UIStroke"),"Color","BorderHi")
 	Create("Frame",{Size=UDim2.new(0,80,0,2),Position=UDim2.new(0,20,0,0),BackgroundColor3=T.Accent,BorderSizePixel=0,ZIndex=2,Parent=WF},{Create("UICorner",{CornerRadius=UDim.new(1,0)})})
 	local TB=Create("Frame",{Size=UDim2.new(1,0,0,TITLE_H),BackgroundColor3=T.Bg0,BorderSizePixel=0,Parent=WF},{
 		Create("UICorner",{CornerRadius=UDim.new(0,6)}),
 		Create("Frame",{Size=UDim2.new(1,0,0,8),Position=UDim2.new(0,0,1,-8),BackgroundColor3=T.Bg0,BorderSizePixel=0}),
 		Create("Frame",{Size=UDim2.new(1,0,0,1),Position=UDim2.new(0,0,1,-1),BackgroundColor3=T.Border,BorderSizePixel=0}),
 	})
+	TR(TB,"BackgroundColor3","Bg0");TR(TB:GetChildren()[2],"BackgroundColor3","Bg0");TR(TB:GetChildren()[3],"BackgroundColor3","Border")
 	MakeDraggable(WF,TB)
 	BuildLogo(TB,12,10)
 	Create("TextLabel",{Size=UDim2.new(0,80,1,0),Position=UDim2.new(0,30,0,0),BackgroundTransparency=1,Text=title:upper(),TextColor3=T.TextHi,TextSize=12,Font=Enum.Font.GothamBlack,TextXAlignment=Enum.TextXAlignment.Left,Parent=TB})
@@ -398,6 +402,7 @@ function Library:CreateWindow(cfg)
 		Create("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,SortOrder=Enum.SortOrder.LayoutOrder}),
 		Create("UIPadding",{PaddingLeft=UDim.new(0,6)})
 	})
+	TR(TabBar,"BackgroundColor3","Bg0")
 	Create("Frame",{Size=UDim2.new(1,0,0,1),Position=UDim2.new(0,0,0,TITLE_H-1),BackgroundColor3=T.Border,BorderSizePixel=0,ZIndex=2,Parent=WF})
 	Create("Frame",{Size=UDim2.new(1,0,0,1),Position=UDim2.new(0,0,0,TITLE_H+TAB_H-1),BackgroundColor3=T.Border,BorderSizePixel=0,ZIndex=2,Parent=WF})
 	local ContentArea=Create("ScrollingFrame",{Name="ContentArea",Size=UDim2.new(1,0,0,CONTENT_H),Position=UDim2.new(0,0,0,TITLE_H+TAB_H),
@@ -405,11 +410,12 @@ function Library:CreateWindow(cfg)
 		ScrollingDirection=Enum.ScrollingDirection.Y,CanvasSize=UDim2.new(0,0,0,0),
 		AutomaticCanvasSize=Enum.AutomaticSize.Y,ClipsDescendants=true,Parent=WF
 	})
-	local SB=Create("Frame",{Size=UDim2.new(1,0,0,STATUS_H),Position=UDim2.new(0,0,0,WIN_H-STATUS_H),BackgroundColor3=T.Bg0,BorderSizePixel=0,Parent=WF},{
+	local SB=Create("Frame",{Size=UDim2.new(1,0,0,22),Position=UDim2.new(0,0,0,WIN_H-22),BackgroundColor3=T.Bg0,BorderSizePixel=0,Parent=WF},{
 		Create("UICorner",{CornerRadius=UDim.new(0,6)}),
 		Create("Frame",{Size=UDim2.new(1,0,0,8),BackgroundColor3=T.Bg0,BorderSizePixel=0}),
 		Create("Frame",{Size=UDim2.new(1,0,0,1),BackgroundColor3=T.Border,BorderSizePixel=0})
 	})
+	TR(SB,"BackgroundColor3","Bg0");TR(SB:GetChildren()[1],"BackgroundColor3","Bg0");TR(SB:GetChildren()[2],"BackgroundColor3","Border")
 	Create("Frame",{Size=UDim2.new(0,5,0,5),Position=UDim2.new(0,10,0.5,-2),BackgroundColor3=T.Green,BorderSizePixel=0,Parent=SB},{Create("UICorner",{CornerRadius=UDim.new(1,0)})})
 	Create("TextLabel",{Size=UDim2.new(0.5,0,1,0),Position=UDim2.new(0,20,0,0),BackgroundTransparency=1,Text="INJECTED",TextColor3=T.Green,TextSize=9,Font=Enum.Font.GothamBold,TextXAlignment=Enum.TextXAlignment.Left,Parent=SB})
 	local PingLbl=Create("TextLabel",{Size=UDim2.new(0,80,1,0),Position=UDim2.new(1,-85,0,0),BackgroundTransparency=1,Text="12ms · v3.1",TextColor3=T.TextLo,TextSize=9,Font=Enum.Font.GothamMedium,TextXAlignment=Enum.TextXAlignment.Right,Parent=SB})
@@ -452,11 +458,13 @@ function Library:CreateWindow(cfg)
 			local box=Create("Frame",{Size=UDim2.new(1,0,0,0),AutomaticSize=Enum.AutomaticSize.Y,BackgroundColor3=T.Bg2,BorderSizePixel=0,LayoutOrder=#col:GetChildren(),Parent=col},{
 				Create("UIStroke",{Color=T.Border,Thickness=1}),Create("UICorner",{CornerRadius=UDim.new(0,5)})
 			})
+			TR(box,"BackgroundColor3","Bg2");TR(box:FindFirstChildOfClass("UIStroke"),"Color","Border")
 			local hdr=Create("Frame",{Size=UDim2.new(1,0,0,24),BackgroundColor3=T.Bg1,BorderSizePixel=0,Parent=box},{
 				Create("UICorner",{CornerRadius=UDim.new(0,5)}),
 				Create("Frame",{Size=UDim2.new(1,0,0,6),Position=UDim2.new(0,0,1,-6),BackgroundColor3=T.Bg1,BorderSizePixel=0}),
 				Create("Frame",{Size=UDim2.new(1,0,0,1),Position=UDim2.new(0,0,1,-1),BackgroundColor3=T.Border,BorderSizePixel=0}),
 			})
+			TR(hdr,"BackgroundColor3","Bg1");TR(hdr:GetChildren()[1],"BackgroundColor3","Bg1");TR(hdr:GetChildren()[2],"BackgroundColor3","Border")
 			Create("TextLabel",{Size=UDim2.new(1,-16,1,0),Position=UDim2.new(0,12,0,0),BackgroundTransparency=1,Text=gbName:upper(),TextColor3=T.TextMid,TextSize=9,Font=Enum.Font.GothamBold,TextXAlignment=Enum.TextXAlignment.Left,Parent=hdr})
 			local body=Create("Frame",{Size=UDim2.new(1,0,0,0),Position=UDim2.new(0,0,0,24),AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1,Parent=box},{
 				Create("UIListLayout",{SortOrder=Enum.SortOrder.LayoutOrder,Padding=UDim.new(0,0)}),
@@ -602,12 +610,12 @@ function Library:CreateWindow(cfg)
 				Create("TextLabel",{Size=UDim2.new(1,-64,1,0),BackgroundTransparency=1,Text=text,TextColor3=T.TextHi,TextSize=11,Font=Enum.Font.Gotham,TextXAlignment=Enum.TextXAlignment.Left,Parent=row})
 				local badge=Create("TextLabel",{Size=UDim2.new(0,56,0,17),Position=UDim2.new(1,-56,0.5,-8),BackgroundColor3=T.Input,BorderSizePixel=0,Text="["..default.Name:upper().."]",TextColor3=T.TextMid,TextSize=9,Font=Enum.Font.GothamMedium,Parent=row},{Create("UIStroke",{Color=T.BorderHi,Thickness=1}),Create("UICorner",{CornerRadius=UDim.new(0,3)})})
 				local value=default;local binding=false
-				local kblE=Create("Frame",{Size=UDim2.new(1,0,0,32),BackgroundTransparency=1,BorderSizePixel=0,LayoutOrder=#kblBody:GetChildren(),Parent=kblBody})
-				local kblHov=Create("Frame",{Size=UDim2.new(1,-8,1,-2),Position=UDim2.new(0,4,0,1),BackgroundColor3=T.Bg1,BackgroundTransparency=1,BorderSizePixel=0,Parent=kblE},{Create("UICorner",{CornerRadius=UDim.new(0,4)})})
-				local kblBar=Create("Frame",{Size=UDim2.new(0,3,0,16),Position=UDim2.new(0,10,0.5,-8),BackgroundColor3=T.TextLo,BorderSizePixel=0,Parent=kblE},{Create("UICorner",{CornerRadius=UDim.new(1,0)})})
-				local kblLbl=Create("TextLabel",{Size=UDim2.new(1,-116,1,0),Position=UDim2.new(0,20,0,0),BackgroundTransparency=1,Text=text,TextColor3=T.TextMid,TextSize=10,Font=Enum.Font.Gotham,TextXAlignment=Enum.TextXAlignment.Left,Parent=kblE})
-				local kblKey=Create("TextLabel",{Size=UDim2.new(0,48,0,16),Position=UDim2.new(1,-92,0.5,-8),BackgroundColor3=T.Bg3,BorderSizePixel=0,Text=default.Name:upper(),TextColor3=T.TextLo,TextSize=8,Font=Enum.Font.GothamMedium,TextXAlignment=Enum.TextXAlignment.Center,Parent=kblE},{Create("UICorner",{CornerRadius=UDim.new(0,3)}),Create("UIStroke",{Color=T.Border,Thickness=1})})
-				local kblState=Create("TextLabel",{Size=UDim2.new(0,34,0,16),Position=UDim2.new(1,-40,0.5,-8),BackgroundColor3=T.Bg3,BorderSizePixel=0,Text=mode=="hold"and"HOLD"or"OFF",TextColor3=T.TextLo,TextSize=8,Font=Enum.Font.GothamBold,TextXAlignment=Enum.TextXAlignment.Center,Parent=kblE},{Create("UICorner",{CornerRadius=UDim.new(0,3)}),Create("UIStroke",{Color=T.Border,Thickness=1})})
+				local kblE=Create("Frame",{Size=UDim2.new(1,0,0,26),BackgroundTransparency=1,BorderSizePixel=0,LayoutOrder=#kblBody:GetChildren(),Parent=kblBody})
+				local kblHov=Create("Frame",{Size=UDim2.new(1,-6,1,-1),Position=UDim2.new(0,3,0,0),BackgroundColor3=T.Bg1,BackgroundTransparency=1,BorderSizePixel=0,Parent=kblE},{Create("UICorner",{CornerRadius=UDim.new(0,3)})})
+				local kblBar=Create("Frame",{Size=UDim2.new(0,2,0,12),Position=UDim2.new(0,6,0.5,-6),BackgroundColor3=T.TextLo,BorderSizePixel=0,Parent=kblE},{Create("UICorner",{CornerRadius=UDim.new(1,0)})})
+				local kblLbl=Create("TextLabel",{Size=UDim2.new(1,-100,1,0),Position=UDim2.new(0,14,0,0),BackgroundTransparency=1,Text=text,TextColor3=T.TextMid,TextSize=9,Font=Enum.Font.Gotham,TextXAlignment=Enum.TextXAlignment.Left,Parent=kblE})
+				local kblKey=Create("TextLabel",{Size=UDim2.new(0,38,0,14),Position=UDim2.new(1,-82,0.5,-7),BackgroundColor3=T.Bg3,BorderSizePixel=0,Text=default.Name:upper(),TextColor3=T.TextLo,TextSize=7,Font=Enum.Font.GothamMedium,TextXAlignment=Enum.TextXAlignment.Center,Parent=kblE},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIStroke",{Color=T.Border,Thickness=1})})
+				local kblState=Create("TextLabel",{Size=UDim2.new(0,28,0,14),Position=UDim2.new(1,-38,0.5,-7),BackgroundColor3=T.Bg3,BorderSizePixel=0,Text=mode=="hold"and"HOLD"or"OFF",TextColor3=T.TextLo,TextSize=7,Font=Enum.Font.GothamBold,TextXAlignment=Enum.TextXAlignment.Center,Parent=kblE},{Create("UICorner",{CornerRadius=UDim.new(0,2)}),Create("UIStroke",{Color=T.Border,Thickness=1})})
 				kblE.MouseEnter:Connect(function()Tween(kblHov,{BackgroundTransparency=0.6},.1)end)
 				kblE.MouseLeave:Connect(function()Tween(kblHov,{BackgroundTransparency=1},.1)end)
 				Library._kblEntries[k]={frame=kblE,bar=kblBar,keyLabel=kblKey,stateChip=kblState,nameLabel=kblLbl}
@@ -659,6 +667,7 @@ function Library:CreateWindow(cfg)
 				c2=c2 or{};local text=c2.Text or"Button";local cb=c2.Callback or function()end
 				local wrap=Create("Frame",{Size=UDim2.new(1,0,0,34),BackgroundTransparency=1,LayoutOrder=#body:GetChildren(),Parent=body},{Create("UIPadding",{PaddingLeft=UDim.new(0,12),PaddingRight=UDim.new(0,10),PaddingTop=UDim.new(0,4),PaddingBottom=UDim.new(0,4)})})
 				local btn=Create("TextButton",{Size=UDim2.new(1,0,1,0),BackgroundColor3=T.Bg3,BorderSizePixel=0,Text=text,TextColor3=T.TextHi,TextSize=11,Font=Enum.Font.GothamMedium,Parent=wrap},{Create("UIStroke",{Color=T.BorderHi,Thickness=1}),Create("UICorner",{CornerRadius=UDim.new(0,4)})})
+				TR(btn,"BackgroundColor3","Bg3");TR(btn:FindFirstChildOfClass("UIStroke"),"Color","BorderHi")
 				btn.MouseButton1Click:Connect(function()Tween(btn,{BackgroundColor3=T.AccentDim},.08);task.wait(.14);Tween(btn,{BackgroundColor3=T.Bg3},.14);pcall(cb)end)
 				btn.MouseEnter:Connect(function()Tween(btn,{BackgroundColor3=T.Hover},.1)end)
 				btn.MouseLeave:Connect(function()Tween(btn,{BackgroundColor3=T.Bg3},.1)end)
@@ -673,6 +682,9 @@ function Library:CreateWindow(cfg)
 			function GB:AddDivider()
 				local wrap=Create("Frame",{Size=UDim2.new(1,0,0,10),BackgroundTransparency=1,LayoutOrder=#body:GetChildren(),Parent=body})
 				Create("Frame",{Size=UDim2.new(1,-22,0,1),Position=UDim2.new(0,11,0.5,0),BackgroundColor3=T.Border,BorderSizePixel=0,Parent=wrap})
+			end
+			function GB:AddThemeColor(label,themeKey)
+				return self:AddColorPicker("__tc_"..themeKey,{Text=label,Default=T[themeKey],Callback=function(nc)T[themeKey]=nc;ApplyTheme()end})
 			end
 			function GB:BuildConfigList(folder)
 				folder=folder or"Punchy"
@@ -691,6 +703,19 @@ function Library:CreateWindow(cfg)
 				self:AddButton({Text="Delete Config",Callback=function()local s=profileDD.Value;if s and s~="No configs found"then Library:DeleteConfig(s,folder);local u=getP();profileDD.Values=u;profileDD:SetValue(u[1]or"")end end})
 				self:AddButton({Text="Refresh List",Callback=function()local u=getP();profileDD.Values=u;profileDD:SetValue(u[1]or"")end})
 			end
+			function GB:BuildDefaultConfigSection(folder)
+				folder=folder or"Punchy"
+				self:BuildConfigList(folder)
+				self:AddDivider()
+				self:AddToggle("__AutoLoad",{Text="Auto Load on Inject",Default=false})
+				self:AddTextbox("__AutoLoadName",{Text="Auto Load Config",Default="default",Placeholder="Config name...",ClearOnFocus=false})
+				self:AddToggle("__AutoSave",{Text="Auto Save on Exit",Default=false})
+				self:AddButton({Text="Open Config Folder",Callback=function()
+					local ok=pcall(function()if not isfolder(folder)then makefolder(folder)end end)
+					Library:Notify(ok and"Folder ready: "..folder or"Could not open folder",2,ok and"success"or"error")
+				end})
+				self:AddButton({Text="Unload",Callback=function()Library:Unload()end})
+			end
 			function GB:BuildThemeList(folder)
 				folder=folder or"PunchyThemes"
 				local nameBox=self:AddTextbox("__th_name",{Text="Theme Name",Default="default",Placeholder="Enter theme name...",ClearOnFocus=false})
@@ -707,10 +732,6 @@ function Library:CreateWindow(cfg)
 			function GB:AddUnloadButton()
 				self:AddButton({Text="Unload",Callback=function()Library:Unload()end})
 			end
-			function GB:AddThemeColor(label,themeKey)
-				local c2={Text=label,Default=T[themeKey],Callback=function(nc)T[themeKey]=nc;ApplyTheme()end}
-				return self:AddColorPicker("__tc_"..themeKey,c2)
-			end
 			return GB
 		end
 		function tab:AddLeftGroupbox(name)return makeGB(name,"Left")end
@@ -722,122 +743,6 @@ function Library:CreateWindow(cfg)
 		if #self._tabs==1 then self:_switchTab(tab)end
 		return tab
 	end
-	function Window:AddESPPreview()
-		local espColor=T.Accent;local charClone=nil;local cloneHRP=nil;local partRelCF={}
-		local rotAngle=0;local bindMap=nil;local tickCount=0
-		local PW,PH=148,270
-		local pf=Create("Frame",{Name="ESPPreview",Size=UDim2.new(0,PW,0,PH),Position=UDim2.new(1,14,0,0),BackgroundColor3=T.Bg1,BorderSizePixel=0,Visible=true,Parent=WF},{Create("UIStroke",{Color=T.BorderHi,Thickness=1}),Create("UICorner",{CornerRadius=UDim.new(0,6)})})
-		Create("Frame",{Size=UDim2.new(0,56,0,2),Position=UDim2.new(0,10,0,0),BackgroundColor3=T.Accent,BorderSizePixel=0,ZIndex=2,Parent=pf},{Create("UICorner",{CornerRadius=UDim.new(1,0)})})
-		local hdr=Create("Frame",{Size=UDim2.new(1,0,0,28),BackgroundColor3=T.Bg0,BorderSizePixel=0,Parent=pf},{
-			Create("UICorner",{CornerRadius=UDim.new(0,6)}),
-			Create("Frame",{Size=UDim2.new(1,0,0,8),Position=UDim2.new(0,0,1,-8),BackgroundColor3=T.Bg0,BorderSizePixel=0}),
-			Create("Frame",{Size=UDim2.new(1,0,0,1),Position=UDim2.new(0,0,1,-1),BackgroundColor3=T.Border,BorderSizePixel=0})
-		})
-		Create("TextLabel",{Size=UDim2.new(1,-20,1,0),Position=UDim2.new(0,10,0,0),BackgroundTransparency=1,Text="ESP PREVIEW",TextColor3=T.TextMid,TextSize=9,Font=Enum.Font.GothamBold,TextXAlignment=Enum.TextXAlignment.Left,Parent=hdr})
-		local acDot=Create("Frame",{Size=UDim2.new(0,6,0,6),Position=UDim2.new(1,-12,0.5,-3),BackgroundColor3=T.Accent,BorderSizePixel=0,Parent=hdr},{Create("UICorner",{CornerRadius=UDim.new(1,0)})})
-		MakeDraggable(pf,hdr)
-		local VP_H=PH-28
-		local vp=Create("ViewportFrame",{Size=UDim2.new(1,0,0,VP_H),Position=UDim2.new(0,0,0,28),BackgroundColor3=Color3.fromRGB(7,6,13),Ambient=Color3.fromRGB(110,105,140),LightDirection=Vector3.new(-0.6,-1,-0.5),LightColor=Color3.fromRGB(255,248,235),ClipsDescendants=true,Parent=pf},{Create("UICorner",{CornerRadius=UDim.new(0,6)})})
-		local wm=Instance.new("WorldModel");wm.Parent=vp
-		local vpCam=Instance.new("Camera");vpCam.FieldOfView=42;vpCam.Parent=vp;vp.CurrentCamera=vpCam
-		local function setupClone()
-			if charClone then pcall(function()charClone:Destroy()end);charClone=nil;cloneHRP=nil;partRelCF={}end
-			local char=LP.Character;if not char then return false end
-			local root=char:FindFirstChild("HumanoidRootPart");if not root then return false end
-			local ok,clone=pcall(function()return char:Clone()end);if not ok or not clone then return false end
-			charClone=clone;pcall(function()charClone.Name="PunchyPreviewChar"end)
-			for _,d in ipairs(charClone:GetDescendants())do
-				if d:IsA("Script")or d:IsA("LocalScript")or d:IsA("ModuleScript")or d:IsA("Animator")or d:IsA("Animation")or d:IsA("BodyMover")or d:IsA("BillboardGui")or d:IsA("SurfaceGui")or d:IsA("Highlight")or d:IsA("SelectionBox")or d:IsA("ParticleEmitter")then
-					pcall(function()d:Destroy()end)
-				end
-			end
-			cloneHRP=charClone:FindFirstChild("HumanoidRootPart");if not cloneHRP then pcall(function()charClone:Destroy()end);charClone=nil;return false end
-			local hum=charClone:FindFirstChildOfClass("Humanoid");if hum then hum.DisplayDistanceType=Enum.HumanoidDisplayDistanceType.None;hum.HealthDisplayType=Enum.HumanoidHealthDisplayType.AlwaysOff end
-			for _,p in ipairs(charClone:GetDescendants())do if p:IsA("BasePart")then p.Anchored=true;p.CanCollide=false;p.CastShadow=false;if p~=cloneHRP then partRelCF[p]=cloneHRP.CFrame:ToObjectSpace(p.CFrame)end end end
-			cloneHRP.CFrame=CFrame.new(0,0,0);for p,rel in pairs(partRelCF)do if p and p.Parent then p.CFrame=CFrame.new(0,0,0)*rel end end
-			charClone.Parent=wm;local charH=5;local cy=charH*0.43;vpCam.CFrame=CFrame.new(Vector3.new(0,cy,charH*1.3),Vector3.new(0,cy,0));return true
-		end
-		task.spawn(function()for i=1,25 do local ok,r=pcall(setupClone);if ok and r then break end;task.wait(0.4)end end)
-		local charAddedConn=LP.CharacterAdded:Connect(function(char)task.spawn(function()char:WaitForChild("HumanoidRootPart",10);task.wait(0.5);pcall(setupClone)end)end)
-		table.insert(Library._connections,charAddedConn)
-		local nameTag=Create("TextLabel",{Size=UDim2.new(1,0,0,14),Position=UDim2.new(0,0,0,4),BackgroundTransparency=1,Text=LP.Name,TextColor3=espColor,TextSize=9,Font=Enum.Font.GothamBold,TextXAlignment=Enum.TextXAlignment.Center,TextStrokeTransparency=0.4,TextStrokeColor3=Color3.new(0,0,0),ZIndex=12,Visible=true,Parent=vp})
-		local distTag=Create("TextLabel",{Size=UDim2.new(1,0,0,10),Position=UDim2.new(0,0,0,18),BackgroundTransparency=1,Text="42m",TextColor3=T.TextMid,TextSize=8,Font=Enum.Font.Gotham,TextXAlignment=Enum.TextXAlignment.Center,TextStrokeTransparency=0.5,ZIndex=12,Visible=true,Parent=vp})
-		local weapTag=Create("TextLabel",{Size=UDim2.new(1,0,0,10),Position=UDim2.new(0,0,0,28),BackgroundTransparency=1,Text="AK-47",TextColor3=T.TextMid,TextSize=7,Font=Enum.Font.Gotham,TextXAlignment=Enum.TextXAlignment.Center,TextStrokeTransparency=0.5,ZIndex=12,Visible=false,Parent=vp})
-		local BX,BW,BY,BH=0.18,0.64,0.155,0.800
-		local boxFrame=Create("Frame",{Size=UDim2.new(BW,0,BH,0),Position=UDim2.new(BX,0,BY,0),BackgroundTransparency=1,BorderSizePixel=0,ZIndex=8,Visible=true,Parent=vp})
-		local boxStroke=Create("UIStroke",{Color=espColor,Thickness=1.5,Parent=boxFrame})
-		local fillFrame=Create("Frame",{Size=UDim2.new(1,0,1,0),BackgroundColor3=espColor,BackgroundTransparency=0.8,BorderSizePixel=0,ZIndex=7,Visible=false,Parent=boxFrame})
-		local hbBg=Create("Frame",{Size=UDim2.new(0,4,1,-4),Position=UDim2.new(0,-9,0,2),BackgroundColor3=Color3.fromRGB(22,7,7),BorderSizePixel=0,ZIndex=8,Visible=true,Parent=boxFrame},{Create("UICorner",{CornerRadius=UDim.new(0,2)})})
-		local hbFill=Create("Frame",{Size=UDim2.new(1,0,0.72,0),Position=UDim2.new(0,0,0.28,0),BackgroundColor3=T.Green,BorderSizePixel=0,Parent=hbBg},{Create("UICorner",{CornerRadius=UDim.new(0,2)})})
-		local armorBg=Create("Frame",{Size=UDim2.new(0,4,1,-4),Position=UDim2.new(1,5,0,2),BackgroundColor3=Color3.fromRGB(8,18,30),BorderSizePixel=0,ZIndex=8,Visible=false,Parent=boxFrame},{Create("UICorner",{CornerRadius=UDim.new(0,2)})})
-		Create("Frame",{Size=UDim2.new(1,0,0.55,0),Position=UDim2.new(0,0,0.45,0),BackgroundColor3=Color3.fromRGB(80,160,240),BorderSizePixel=0,Parent=armorBg},{Create("UICorner",{CornerRadius=UDim.new(0,2)})})
-		local snapLine=Create("Frame",{Size=UDim2.new(0,1,0,0),Position=UDim2.new(0.5,0,1,0),AnchorPoint=Vector2.new(0.5,1),BackgroundColor3=espColor,BackgroundTransparency=0.4,BorderSizePixel=0,ZIndex=6,Visible=false,Parent=vp})
-		local skelFrame=Create("Frame",{Size=UDim2.new(1,0,1,0),BackgroundTransparency=1,BorderSizePixel=0,ZIndex=9,Visible=true,Parent=boxFrame})
-		local skelLines={}
-		local function SkelLine(x1,y1,x2,y2)
-			local dx,dy=x2-x1,y2-y1;local len=math.sqrt(dx*dx+dy*dy);if len<1 then return end
-			local angle=math.deg(math.atan2(dy,dx));local cx2,cy2=(x1+x2)/2,(y1+y2)/2
-			local line=Create("Frame",{Size=UDim2.new(0,len,0,1.5),Position=UDim2.new(0,cx2-len/2,0,cy2-0.75),Rotation=angle,BackgroundColor3=espColor,BorderSizePixel=0,ZIndex=9,Parent=skelFrame},{Create("UICorner",{CornerRadius=UDim.new(1,0)})})
-			table.insert(skelLines,line)
-		end
-		SkelLine(41,6,41,26);SkelLine(41,26,16,34);SkelLine(41,26,66,34);SkelLine(16,34,10,82);SkelLine(10,82,8,116)
-		SkelLine(66,34,72,82);SkelLine(72,82,74,116);SkelLine(41,26,41,100);SkelLine(41,100,26,107);SkelLine(41,100,56,107)
-		SkelLine(26,107,24,152);SkelLine(24,152,22,170);SkelLine(56,107,58,152);SkelLine(58,152,60,170)
-		local headDot=Create("Frame",{Size=UDim2.new(0,10,0,10),Position=UDim2.new(0,36,0,0),BackgroundTransparency=1,BorderSizePixel=0,ZIndex=9,Visible=true,Parent=skelFrame},{Create("UICorner",{CornerRadius=UDim.new(1,0)}),Create("UIStroke",{Color=espColor,Thickness=1.5})})
-		local chamHL=Instance.new("Highlight");chamHL.FillTransparency=0.5;chamHL.OutlineTransparency=0.3;chamHL.FillColor=espColor;chamHL.OutlineColor=espColor;chamHL.DepthMode=Enum.HighlightDepthMode.AlwaysOnTop;chamHL.Enabled=false;chamHL.Parent=wm
-		task.delay(0.5,function()if charClone and charClone.Parent then chamHL.Adornee=charClone end end)
-		local function updateColor(col)
-			espColor=col;acDot.BackgroundColor3=col;boxStroke.Color=col;fillFrame.BackgroundColor3=col
-			nameTag.TextColor3=col;chamHL.FillColor=col;chamHL.OutlineColor=col;snapLine.BackgroundColor3=col
-			for _,l in ipairs(skelLines)do if l and l.Parent then l.BackgroundColor3=col end end
-			if headDot then local st=headDot:FindFirstChildOfClass("UIStroke");if st then st.Color=col end end
-		end
-		local distSim=0
-		local rotConn=RunService.Heartbeat:Connect(function(dt)
-			rotAngle=rotAngle+dt*42;distSim=distSim+dt*0.4;distTag.Text=math.floor(35+math.sin(distSim)*22).."m"
-			if cloneHRP and cloneHRP.Parent then
-				local newCF=CFrame.Angles(0,math.rad(rotAngle),0)
-				pcall(function()cloneHRP.CFrame=newCF;for p,rel in pairs(partRelCF)do if p and p.Parent then p.CFrame=newCF*rel end end end)
-			end
-			tickCount=tickCount+1
-			if tickCount>=5 and bindMap then
-				tickCount=0;local bm=bindMap
-				local function tog(id)return bm[id]and Library.Toggles[bm[id]]and Library.Toggles[bm[id]].Value end
-				local function opt(id)return bm[id]and Library.Options[bm[id]]and Library.Options[bm[id]].Value end
-				local en=tog("enabled");local col=opt("color");local filled=tog("filled");local fillT=opt("fillTrans")
-				local skel=tog("skeleton");local headESP=tog("headESP");local chamsEn=tog("chams")
-				local chamsC=opt("chamsColor");local chamsT=opt("chamsTrans");local armorEn=tog("armor")
-				local snapEn=tog("snapline");local weapEn=tog("weapon")
-				if col then updateColor(col)end
-				local show=en~=false and en~=nil
-				boxFrame.Visible=show;hbBg.Visible=show;nameTag.Visible=show;distTag.Visible=show
-				if filled~=nil then fillFrame.Visible=filled end
-				if fillT~=nil then fillFrame.BackgroundTransparency=fillT/100 end
-				if skel~=nil then skelFrame.Visible=skel end
-				if headESP~=nil then headDot.Visible=headESP end
-				if armorEn~=nil then armorBg.Visible=armorEn end
-				if snapEn~=nil then snapLine.Visible=snapEn end
-				if weapEn~=nil then weapTag.Visible=weapEn end
-				if chamsEn~=nil then
-					chamHL.Enabled=chamsEn
-					if chamsC then chamHL.FillColor=chamsC;chamHL.OutlineColor=chamsC end
-					if chamsT then chamHL.FillTransparency=chamsT/100 end
-					if chamsEn and charClone and charClone.Parent and not chamHL.Adornee then chamHL.Adornee=charClone end
-				end
-			end
-		end)
-		table.insert(Library._connections,rotConn)
-		local Preview={}
-		function Preview:BindKeys(map)bindMap=map end
-		function Preview:Refresh()if not bindMap then return end;tickCount=99 end
-		function Preview:SetVisible(v)pf.Visible=v end
-		function Preview:SetColor(color)updateColor(color)end
-		function Preview:SetBox(en,filled,trans)boxFrame.Visible=en;hbBg.Visible=en;nameTag.Visible=en;distTag.Visible=en;if filled~=nil then fillFrame.Visible=filled end;if trans~=nil then fillFrame.BackgroundTransparency=trans end end
-		function Preview:SetFilled(en,trans)fillFrame.Visible=en;if trans~=nil then fillFrame.BackgroundTransparency=trans end end
-		function Preview:SetSkeleton(en)skelFrame.Visible=en end
-		function Preview:SetChams(en,color,trans)chamHL.Enabled=en;if color then updateColor(color)end;if trans then chamHL.FillTransparency=trans end;if en and charClone and charClone.Parent and not chamHL.Adornee then chamHL.Adornee=charClone end end
-		return Preview
-	end
 	function Window:Unload()
 		for _,c in ipairs(Library._connections)do pcall(function()c:Disconnect()end)end
 		Library._connections={};for _,fn in ipairs(Library._cleanups)do pcall(fn)end
@@ -846,6 +751,33 @@ function Library:CreateWindow(cfg)
 	end
 	Library._window=Window
 	return Window
+end
+function Library:SaveTheme(name,folder)
+	folder=folder or"PunchyThemes";name=name or"default"
+	local ok=pcall(function()
+		if not isfolder(folder)then makefolder(folder)end
+		local data={}
+		for k,v in pairs(T)do data[k]={r=v.R,g=v.G,b=v.B}end
+		writefile(folder.."/"..name..".json",HttpService:JSONEncode(data))
+	end)
+	if ok then Library:Notify("Theme saved: "..name,2,"success")else Library:Notify("Theme save failed!",2,"error")end
+end
+function Library:LoadTheme(name,folder)
+	folder=folder or"PunchyThemes";name=name or"default"
+	local ok,raw=pcall(readfile,folder.."/"..name..".json")
+	if not ok or not raw then Library:Notify("No theme: "..name,2,"error");return end
+	local ok2,data=pcall(HttpService.JSONDecode,HttpService,raw)
+	if not ok2 then Library:Notify("Theme corrupted!",2,"error");return end
+	for k,v in pairs(data)do if T[k]and type(v)=="table"then T[k]=Color3.new(v.r,v.g,v.b)end end
+	ApplyTheme();Library:Notify("Theme loaded: "..name,2,"success")
+end
+function Library:GetThemes(folder)
+	folder=folder or"PunchyThemes";local list={}
+	pcall(function()
+		if not isfolder(folder)then return end
+		for _,f in ipairs(listfiles(folder))do local n=f:match("([^/\\]+)%.json$");if n then table.insert(list,n)end end
+	end)
+	return list
 end
 function Library:Unload()if self._window then self._window:Unload()end end
 return Library
